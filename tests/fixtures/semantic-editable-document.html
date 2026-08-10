@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>示例活动</title>
+    <style>
+      * { box-sizing: border-box; }
+      .fit-shell { width: 100%; }
+      .fit-box { position: relative; }
+      .screen { position: relative; width: 800px; height: 1600px; overflow: hidden; }
+      .feature-panel { position: absolute; left: 40px; top: 200px; width: 670px; height: 220px; }
+      .feature-link { position: absolute; left: 20px; top: 20px; width: 150px; height: 180px; }
+      .feature-icon { position: absolute; left: 25px; top: 16px; width: 100px; height: 100px; }
+      .feature-title { position: absolute; left: 0; top: 126px; width: 150px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main class="fit-shell">
+      <div class="fit-box">
+        <div class="screen">
+          <section class="feature-panel" aria-label="功能入口">
+            <a class="feature-link" href="#">
+              <img class="feature-icon" src="asset:feature-icon" alt="" data-reference-asset="feature-icon">
+              <strong class="feature-title">功能入口</strong>
+            </a>
+          </section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

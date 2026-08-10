@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image To Slice</title>
+    <style>
+      /* __UI_STYLES__ */
+    </style>
+  </head>
+  <body>
+    <div id="startupGate" class="startup-gate" role="status" aria-live="polite">
+      <div class="startup-card">
+        <span class="startup-spinner" aria-hidden="true"></span>
+        <strong class="startup-title">正在连接本地服务</strong>
+        <span id="startupMessage" class="startup-message">正在检查 127.0.0.1:18787，并加载模型配置…</span>
+        <button id="startupRetry" class="startup-retry" type="button" hidden>重新连接</button>
+      </div>
+    </div>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-title">Image To Slice</span>
+        </div>
+        <div class="topbar-actions">
+          <div class="import-action-group ai">
+            <button id="decomposeBackground" class="text-action place-action" type="button" disabled>AI拆图</button>
+            <button class="import-help" type="button" aria-label="说明 AI拆图" data-import-help="一次识别普通 PNG 切图和需要还原的完整主视觉背景；普通切图直接加入画布，背景确认范围后再生成">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.8 9a2.4 2.4 0 0 1 4.6 1c0 1.8-2.4 2-2.4 3.7"></path><path d="M12 17h.01"></path></svg>
+            </button>
+          </div>
+          <div id="previewZoomControls" class="canvas-zoom-controls preview-zoom-controls" aria-label="画布缩放" hidden>
+            <button type="button" data-canvas-zoom="out" aria-label="缩小">−</button>
+            <button class="preview-zoom-value" type="button" data-canvas-zoom="reset" aria-label="恢复到 100%">100%</button>
+            <button type="button" data-canvas-zoom="in" aria-label="放大">＋</button>
+            <button type="button" data-canvas-zoom="fit">适应</button>
+          </div>
+          <div class="import-actions" aria-label="导入 Figma">
+            <div class="import-action-group">
+              <button id="placeSource" class="text-action place-action" type="button" disabled>切图导入</button>
+              <button class="import-help" type="button" aria-label="说明切图导入" data-import-help="将当前背景和切图资产直接导入Figma">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.8 9a2.4 2.4 0 0 1 4.6 1c0 1.8-2.4 2-2.4 3.7"></path><path d="M12 17h.01"></path></svg>
+              </button>
+            </div>
+            <div class="import-action-group ai">
+              <button id="placeAiLayers" class="text-action place-action" type="button" disabled>AI 图层导入</button>
+              <button class="import-help" type="button" aria-label="说明 AI 图层导入" data-import-help='确认切图后，AI识别画布内的文字、布局、切图资产，导入为可编辑的图层，识别准度依赖于"设置"->"图片理解模型"能力'>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.8 9a2.4 2.4 0 0 1 4.6 1c0 1.8-2.4 2-2.4 3.7"></path><path d="M12 17h.01"></path></svg>
+              </button>
+            </div>
+          </div>
+          <button id="exportFigmaFrameHtml" class="text-action place-action" type="button" aria-disabled="true" title="请在 Figma 中选择一个完整画板">导出 HTML</button>
+          <button id="windowToggle" class="window-toggle" type="button" aria-label="收起窗口" title="收起窗口">−</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="sidebar">
+          <nav class="tabs" aria-label="生成模式">
+            <button class="tab active" type="button" data-mode="text-to-image">
+              <span>文生图</span>
+            </button>
+            <button class="tab" type="button" data-mode="image-to-image">
+              <span>图生图</span>
+            </button>
+          </nav>
+
+          <div class="controls">
+            <section class="section">
+              <div class="section-title">1. 输入描述词</div>
+              <div class="prompt-box">
+                <textarea id="prompt" maxlength="1000"></textarea>
+                <div id="charCount" class="char-count">0 / 1000</div>
+                <div id="referenceSection" class="reference-strip hidden">
+                  <div id="referenceDrop" class="reference-drop">
+                    <input id="referenceImage" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+                    <span id="uploadText" class="reference-empty">
+                      <strong>粘贴图片或点击上传</strong>
+                      <span>支持一次上传多张，也支持连续粘贴多张参考图</span>
+                    </span>
+                    <div id="referenceChips" class="reference-chips"></div>
+                  </div>
+                  <div id="referencePopover" class="reference-popover">
+                    <div id="referencePopoverGrid" class="reference-popover-grid"></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="section">
+              <div class="section-title">2. 选片比例</div>
+              <div class="ratio-grid">
+                <button class="choice" type="button" data-ratio="1:1"><span class="choice-main">1:1</span><span class="choice-label">正方形</span><span class="choice-size">1024px × 1024px</span></button>
+                <button class="choice" type="button" data-ratio="16:9"><span class="choice-main">16:9</span><span class="choice-label">横屏</span><span class="choice-size">1920px × 1080px</span></button>
+                <button class="choice" type="button" data-ratio="4:3"><span class="choice-main">4:3</span><span class="choice-label">传统屏</span><span class="choice-size">1600px × 1200px</span></button>
+                <button class="choice" type="button" data-ratio="3:4"><span class="choice-main">3:4</span><span class="choice-label">竖屏</span><span class="choice-size">1200px × 1600px</span></button>
+                <button class="choice active" type="button" data-ratio="9:16"><span class="choice-main">9:16</span><span class="choice-label">手机屏</span><span class="choice-size">750px × 1334px</span></button>
+                <button class="choice" type="button" data-ratio="custom"><span class="choice-main">自定义</span><span class="choice-size">手动输入宽高</span></button>
+              </div>
+            </section>
+
+            <div class="generate-actions">
+              <button id="generate" class="generate" type="button">AI生图</button>
+              <span class="generate-or">或</span>
+              <button id="uploadLocal" class="generate secondary" type="button">本地图片</button>
+              <input id="localImage" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            </div>
+          </div>
+
+          <section id="cutSection" class="cut-section">
+            <div class="cut-head">
+              <div class="cut-title-row">
+                <h2 class="cut-title">切图资产</h2>
+                <span id="resultCount"></span>
+              </div>
+              <div class="cut-head-actions">
+                <button id="exportSlices" class="cut-batch" type="button" disabled>导出切图包</button>
+                <button id="transparentAll" class="cut-batch" type="button" disabled>全部透明</button>
+                <button id="toggleAllSlices" class="cut-batch" type="button" disabled>全部隐藏</button>
+                <button id="repairPreview" class="cut-batch" type="button" disabled>预览补齐</button>
+              </div>
+            </div>
+            <div id="cutGrid" class="cut-grid"></div>
+          </section>
+
+          <button id="settingsTrigger" class="settings-trigger" type="button" aria-label="打开设置">设置</button>
+          <button id="newWorkTrigger" class="new-work-trigger" type="button">开始新工作</button>
+          <button id="draftsTrigger" class="drafts-trigger" type="button" hidden>切图记录</button>
+          <section id="draftsPanel" class="drafts-panel" aria-label="切图记录">
+            <div class="drafts-head">
+              <strong>切图记录</strong>
+              <div class="drafts-head-actions">
+                <button id="draftsCopy" class="drafts-copy" type="button">创建副本</button>
+                <button id="draftsClose" class="drafts-close" type="button" aria-label="关闭切图记录">×</button>
+              </div>
+            </div>
+            <div id="draftsList" class="drafts-list"></div>
+          </section>
+          <section id="settingsPanel" class="settings-panel model-settings-panel" aria-label="设置模型">
+            <div class="settings-head">
+              <div><span>设置模型</span><div id="apiConfigStatus" class="config-status"></div></div>
+              <div class="settings-head-actions">
+                <button id="newModelConfig" type="button">＋ 新建 API</button>
+                <button id="settingsClose" class="settings-close" type="button" aria-label="关闭设置">×</button>
+              </div>
+            </div>
+            <div class="model-settings-content">
+              <section class="model-settings-section">
+                <div class="model-settings-section-head">
+                  <div><strong>当前使用</strong><small>切换后立即保存并生效</small></div>
+                </div>
+                <div id="taskRoutingView" class="task-routing-view"></div>
+              </section>
+              <section class="model-settings-section">
+                <div class="model-settings-section-head">
+                  <div><strong>模型 API</strong><small>可创建多个连接并按用途选择</small></div>
+                </div>
+                <div id="modelConfigList" class="model-config-list"></div>
+              </section>
+            </div>
+          </section>
+          <section id="modelConfigDialog" class="model-config-dialog" aria-hidden="true" aria-modal="true" aria-labelledby="modelConfigDialogTitle">
+            <div class="model-config-dialog-card" role="dialog">
+              <div class="model-config-dialog-head">
+                <strong id="modelConfigDialogTitle">新建模型 API</strong>
+                <button id="modelConfigDialogClose" type="button" aria-label="关闭模型 API 编辑">×</button>
+              </div>
+              <div class="model-config-dialog-body">
+                <form id="modelConfigForm" class="model-config-form">
+                  <input id="modelConfigId" type="hidden" />
+                  <div class="model-config-form-grid">
+                    <label>备注（选填）<input id="modelConfigName" type="text" autocomplete="off" placeholder="例如：官方 OpenAI" /></label>
+                    <label>Base URL<input id="modelConfigBaseUrl" type="url" placeholder="https://api.openai.com" required /></label>
+                    <label>模型<div class="model-config-model-row"><input id="modelConfigModel" type="text" autocomplete="off" required aria-controls="modelConfigModelMenu" aria-expanded="false" /><button id="modelConfigModels" type="button">获取模型</button><div id="modelConfigModelMenu" class="model-config-model-menu" role="listbox" hidden></div></div></label>
+                    <label>超时时间（秒）<input id="modelConfigTimeout" type="number" min="30" max="1800" step="1" value="500" /></label>
+                    <label>API Key<div class="model-config-key-row"><input id="modelConfigApiKey" type="password" autocomplete="off" placeholder="sk-..." /><button id="modelConfigRevealKey" type="button">显示</button></div></label>
+                  </div>
+                  <fieldset class="model-config-tasks"><legend>用于</legend><label><input type="radio" name="modelConfigPurpose" value="vision" checked />图片理解</label><label><input type="radio" name="modelConfigPurpose" value="image" />图片生成 / 修补</label></fieldset>
+                  <div class="model-config-form-actions"><button id="modelConfigDelete" type="button" hidden>删除</button><button id="modelConfigTest" type="button">测试</button><span></span><button class="confirm" type="submit">保存并生效</button></div>
+                </form>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="main">
+          <div class="content">
+            <div id="resultGrid" class="result-view" aria-label="生成结果">
+              <div class="result-card"></div>
+            </div>
+
+          </div>
+        </section>
+      </section>
+      <div id="status" class="status" role="status" aria-live="polite">
+        <span id="statusMessage" class="status-message"></span>
+        <button id="statusClose" class="status-close" type="button" aria-label="关闭提示">×</button>
+      </div>
+      <aside id="sliceSettingsDrawer" class="slice-settings-drawer" aria-hidden="true" aria-label="切图设置">
+        <div class="slice-settings-head">
+          <div>
+            <div class="slice-settings-kicker">切图设置</div>
+            <strong id="sliceSettingsTitle" class="slice-settings-title">slice</strong>
+          </div>
+          <button id="sliceSettingsClose" class="slice-settings-close" type="button" aria-label="关闭切图设置">×</button>
+        </div>
+        <div id="sliceSettingsBody" class="slice-settings-body"></div>
+      </aside>
+      <div id="sliceImagePreview" class="slice-image-preview" aria-hidden="true" aria-label="切图编辑器">
+        <section class="slice-image-editor" role="dialog" aria-modal="true" aria-label="编辑切图">
+          <div class="slice-image-editor-viewport">
+            <div id="sliceImageEditorStage" class="slice-image-editor-stage">
+              <canvas id="sliceImageEditorBase"></canvas>
+              <canvas id="sliceImageEditorMask"></canvas>
+            </div>
+          </div>
+          <div class="slice-image-editor-toolbar">
+            <button class="slice-image-editor-tool active" type="button" data-slice-editor-tool="brush" aria-label="画笔" title="画笔">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.622 17.897-10.68-2.913"/><path d="M18.376 2.622a1 1 0 0 1 3.002 3.002L17.36 9.642a2 2 0 0 1-.683.437l-2.66.946a.5.5 0 0 1-.64-.64l.946-2.66a2 2 0 0 1 .437-.683z"/><path d="M9 8c-2.8 0-5 2.2-5 5 0 1.7.8 3.2 2 4.1C7.7 18.5 6.4 21 4 21c4.5 0 7-2.5 7-6 0-1.2-.4-2.3-1-3.2"/></svg>
+            </button>
+            <button class="slice-image-editor-tool" type="button" data-slice-editor-tool="eraser" aria-label="橡皮擦" title="橡皮擦">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 21-4.3-4.3a2.4 2.4 0 0 1 0-3.4L13.3 2.7a2.4 2.4 0 0 1 3.4 0l4.6 4.6a2.4 2.4 0 0 1 0 3.4L11 21"/><path d="m5 11 9 9"/><path d="M7 21h10"/></svg>
+            </button>
+            <label class="slice-image-editor-size">
+              <span>粗细</span>
+              <input id="sliceImageEditorSize" type="range" min="1" max="200" value="24" />
+              <output id="sliceImageEditorSizeValue">24px</output>
+            </label>
+            <div class="slice-image-editor-actions">
+              <button id="sliceImageEditorComplete" class="slice-image-editor-action" type="button" disabled>AI补齐</button>
+              <button id="sliceImageEditorCancelAi" class="slice-image-editor-cancel-ai" type="button" aria-label="取消 AI 补齐" title="取消 AI 补齐" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+              <button id="sliceImageEditorSave" class="slice-image-editor-action primary" type="button" disabled>保存到切图</button>
+            </div>
+          </div>
+          <button id="sliceImagePreviewClose" class="slice-image-preview-close" type="button" aria-label="关闭">×</button>
+          <section id="sliceImageEditorUnsaved" class="slice-image-editor-unsaved" aria-label="保存修改" hidden>
+            <div class="slice-image-editor-unsaved-card">
+              <strong>保存修改？</strong>
+              <p>当前切图存在未保存的图片修改。</p>
+              <div class="slice-image-editor-unsaved-actions">
+                <button id="sliceImageEditorCancelClose" type="button">取消</button>
+                <button id="sliceImageEditorDiscard" type="button">不保存</button>
+                <button id="sliceImageEditorConfirmSave" class="confirm" type="button">保存修改</button>
+              </div>
+            </div>
+          </section>
+        </section>
+      </div>
+      <div id="importHelpPopover" class="import-help-popover" role="dialog" hidden></div>
+      <section id="workspaceRestoreDialog" class="place-dialog" aria-modal="true" aria-label="恢复上次工作">
+        <div class="place-dialog-card">
+          <div class="place-dialog-head"><strong>发现未完成的工作</strong></div>
+          <p class="hint workspace-restore-copy">可以恢复上次加载的图片、切图资产和 AI图层导入预览。</p>
+          <div class="workspace-restore-footer">
+            <label class="restore-preference"><input id="workspaceRestoreRemember" type="checkbox" />不再提醒</label>
+            <div class="custom-size-actions">
+              <button id="workspaceDiscard" type="button">开始新工作</button>
+              <button id="workspaceRestore" class="confirm" type="button">恢复上次工作</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="customSizeDialog" class="place-dialog" aria-modal="true" aria-label="自定义图片尺寸">
+        <form id="customSizeForm" class="custom-size-card">
+          <div class="place-dialog-head">
+            <strong>自定义尺寸</strong>
+            <button id="customSizeClose" class="place-dialog-close" type="button" aria-label="关闭">×</button>
+          </div>
+          <div class="custom-size-fields">
+            <label class="size-field" for="width">
+              <span>宽度</span>
+              <span class="custom-size-input"><input id="width" type="number" min="256" max="4096" value="750" required /><span class="custom-size-unit">px</span></span>
+            </label>
+            <span class="link-icon">×</span>
+            <label class="size-field" for="height">
+              <span>高度</span>
+              <span class="custom-size-input"><input id="height" type="number" min="256" max="4096" value="1334" required /><span class="custom-size-unit">px</span></span>
+            </label>
+          </div>
+          <div class="hint">支持 256–4096px</div>
+          <div class="custom-size-actions">
+            <button id="customSizeCancel" type="button">取消</button>
+            <button class="confirm" type="submit">确定</button>
+          </div>
+        </form>
+      </section>
+      <section id="recordNoteDialog" class="place-dialog" aria-modal="true" aria-label="修改切图记录备注">
+        <form id="recordNoteForm" class="place-dialog-card record-note-card">
+          <div class="place-dialog-head">
+            <strong>修改备注</strong>
+            <button id="recordNoteClose" class="place-dialog-close" type="button" aria-label="关闭">×</button>
+          </div>
+          <input id="recordNoteInput" class="record-note-input" type="text" maxlength="80" placeholder="输入自己可见的标题" />
+          <div class="custom-size-actions">
+            <button id="recordNoteCancel" type="button">取消</button>
+            <button class="confirm" type="submit">确定</button>
+          </div>
+        </form>
+      </section>
+      <section id="globalLoadingDialog" class="editable-preview-loading-dialog" aria-hidden="true" aria-modal="true" aria-labelledby="globalLoadingTitle">
+        <div class="editable-preview-loading-card" role="dialog">
+          <div class="editable-preview-loading-spinner" aria-hidden="true"></div>
+          <strong id="globalLoadingTitle">正在处理...</strong>
+        </div>
+      </section>
+          <section id="editablePreviewLoadingDialog" class="editable-preview-loading-dialog" aria-hidden="true" aria-modal="true" aria-labelledby="editablePreviewLoadingTitle">
+            <div class="editable-preview-loading-card" role="dialog">
+              <div class="editable-preview-loading-spinner" aria-hidden="true"></div>
+              <strong id="editablePreviewLoadingTitle">正在AI图层导入</strong>
+              <span id="editablePreviewLoadingDescription" class="editable-preview-loading-description">准备请求图片理解模型分析文字、布局和切图资产…</span>
+              <span id="editablePreviewElapsed" class="editable-preview-elapsed">已用时 0 秒</span>
+              <div class="editable-preview-loading-actions">
+                <button id="editablePreviewRetry" class="editable-preview-retry" type="button" hidden>重试</button>
+                <button id="editablePreviewCancel" class="editable-preview-cancel" type="button">取消</button>
+              </div>
+            </div>
+          </section>
+      <section id="backgroundDecompositionLoadingDialog" class="editable-preview-loading-dialog" aria-hidden="true" aria-modal="true" aria-labelledby="backgroundDecompositionLoadingTitle">
+        <div class="editable-preview-loading-card" role="dialog">
+          <div class="editable-preview-loading-spinner" aria-hidden="true"></div>
+          <strong id="backgroundDecompositionLoadingTitle">正在AI拆图</strong>
+          <span id="backgroundDecompositionLoadingDescription" class="editable-preview-loading-description">正在识别普通切图、完整背景和界面覆盖层…</span>
+          <span id="backgroundDecompositionElapsed" class="editable-preview-elapsed">已用时 0 秒</span>
+          <button id="backgroundDecompositionLoadingCancel" class="editable-preview-cancel" type="button">取消</button>
+        </div>
+      </section>
+      <section id="backgroundDecompositionDialog" class="background-decomposition-dialog" aria-hidden="true" aria-modal="true" aria-labelledby="backgroundDecompositionTitle">
+        <div class="background-decomposition-card" role="dialog">
+          <header class="background-decomposition-head">
+            <div class="background-decomposition-title">
+              <div>
+                <strong id="backgroundDecompositionTitle">选择修补背景</strong>
+                <span>蓝框是完整背景，红框会从背景中移除。艺术字、插画和融入画面的品牌内容默认保留。</span>
+              </div>
+              <div id="backgroundDecompositionZoomControls" class="canvas-zoom-controls html-preview-zoom-controls" aria-label="拆图画布缩放">
+                <button type="button" data-canvas-zoom="out" aria-label="缩小">−</button>
+                <button class="html-preview-zoom-value" type="button" data-canvas-zoom="reset" aria-label="恢复到 100%">100%</button>
+                <button type="button" data-canvas-zoom="in" aria-label="放大">＋</button>
+                <button class="html-preview-zoom-fit" type="button" data-canvas-zoom="fit">适应</button>
+              </div>
+            </div>
+            <div class="background-decomposition-head-actions">
+              <button id="backgroundDecompositionRegenerate" type="button">重新 AI 识别</button>
+              <button id="backgroundDecompositionClose" class="background-decomposition-close" type="button" aria-label="关闭">×</button>
+            </div>
+          </header>
+          <div class="background-decomposition-body">
+            <div id="backgroundDecompositionViewport" class="background-decomposition-viewport">
+              <div id="backgroundDecompositionSizer" class="background-decomposition-sizer">
+                <div id="backgroundDecompositionStage" class="background-decomposition-stage">
+                  <img id="backgroundDecompositionImage" alt="" />
+                  <div id="backgroundDecompositionLayer" class="background-decomposition-layer"></div>
+                </div>
+              </div>
+            </div>
+            <aside id="backgroundDecompositionList" class="background-decomposition-list"></aside>
+          </div>
+          <footer class="background-decomposition-footer">
+            <span id="backgroundDecompositionSummary"></span>
+            <div>
+              <button id="backgroundDecompositionCancel" type="button">取消</button>
+              <button id="backgroundDecompositionGenerate" class="confirm" type="button">生成完整背景</button>
+            </div>
+          </footer>
+        </div>
+      </section>
+      <section id="htmlPreviewDialog" class="html-preview-dialog" aria-modal="true" aria-label="AI图层导入预览">
+        <div class="html-preview-card">
+          <div class="html-preview-head">
+            <div class="html-preview-title">
+              <strong>AI图层导入预览</strong>
+              <div id="htmlPreviewZoomControls" class="canvas-zoom-controls html-preview-zoom-controls" aria-label="预览缩放">
+                <button type="button" data-canvas-zoom="out" aria-label="缩小">−</button>
+                <button class="html-preview-zoom-value" type="button" data-canvas-zoom="reset" aria-label="恢复到 100%">100%</button>
+                <button type="button" data-canvas-zoom="in" aria-label="放大">＋</button>
+                <button class="html-preview-zoom-fit" type="button" data-canvas-zoom="fit">适应</button>
+              </div>
+            </div>
+            <div class="html-preview-actions">
+              <button id="htmlPreviewRegenerate" class="html-preview-regenerate" type="button">重新 AI 识别</button>
+              <button id="htmlPreviewDownload" class="html-preview-download" type="button">下载 HTML</button>
+              <div id="htmlPreviewImportSettingsGroup" class="html-preview-import-settings-group">
+                <button id="htmlPreviewImport" class="html-preview-import" type="button">导入此设计稿到 Figma</button>
+                <button id="htmlPreviewImportSettings" class="html-preview-import-settings" type="button" aria-label="导入设置" aria-haspopup="dialog" aria-expanded="false">
+                  <svg class="html-preview-import-settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.16.38.37.72.6 1 .3.36.7.57 1.1.6h.1v4h-.09c-.42.03-.82.24-1.11.6-.23.28-.44.62-.6 1Z"></path>
+                  </svg>
+                </button>
+                <div id="htmlPreviewImportSettingsPopover" class="html-preview-import-settings-popover" role="dialog" aria-label="Figma 导入设置" hidden>
+                  <label class="html-preview-import-settings-option">
+                    <input id="htmlPreviewHighFidelityCapture" type="checkbox" />
+                    <span>
+                      <strong>高保真捕获（Playwright/CDP）</strong>
+                      <small>补全伪元素、滤镜、裁剪和复杂背景。</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <button id="htmlPreviewClose" class="html-preview-close" type="button" aria-label="关闭">×</button>
+            </div>
+          </div>
+          <div id="htmlPreviewBody" class="html-preview-body">
+            <div id="htmlPreviewViewport" class="html-preview-viewport">
+              <div id="htmlPreviewStage" class="html-preview-stage">
+                <div id="htmlPreviewSizer" class="html-preview-sizer">
+                  <iframe id="htmlPreviewFrame" class="html-preview-frame" title="AI图层导入预览"></iframe>
+                </div>
+              </div>
+              <div id="htmlPreviewInspectorHighlight" class="html-preview-inspector-highlight" hidden>
+                <span id="htmlPreviewInspectorHighlightLabel"></span>
+              </div>
+            </div>
+            <div id="htmlPreviewInspectorResize" class="html-preview-inspector-resize" role="separator" aria-label="调整布局检查器宽度" aria-orientation="vertical" tabindex="0"></div>
+            <aside id="htmlPreviewInspector" class="html-preview-inspector" aria-label="布局检查器">
+              <div class="html-preview-inspector-head">
+                <div class="html-preview-inspector-heading">
+                  <strong>Elements</strong>
+                  <span>选择后可删除生成元素</span>
+                </div>
+                <div class="html-preview-inspector-actions">
+                  <button id="htmlPreviewInspectorDelete" class="danger" type="button" disabled>删除</button>
+                </div>
+              </div>
+              <div id="htmlPreviewInspectorTree" class="html-preview-inspector-tree">
+                <div class="html-preview-inspector-empty">等待预览内容</div>
+              </div>
+              <section id="htmlPreviewInspectorDetails" class="html-preview-inspector-details" aria-label="元素布局">
+                <div class="html-preview-inspector-section-title">Layout</div>
+                <div class="html-preview-inspector-empty">选择元素以查看布局</div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </section>
+      <div id="windowResizer" class="window-resizer" title="拖拽调整窗口大小" aria-hidden="true"></div>
+    </main>
+
+    <!-- WEB_TO_FIGMA_CAPTURE_RUNTIME_START -->
+    <script id="webToFigmaCaptureRuntime" type="text/plain">
+/* __WEB_TO_FIGMA_CAPTURE_RUNTIME__ */
+
+    </script>
+    <!-- WEB_TO_FIGMA_CAPTURE_RUNTIME_END -->
+    <script>
+/* __UI_VENDOR_SCRIPTS__ */
+    </script>
+    <script>
+/* __UI_APP_SCRIPT__ */
+    </script>
+  </body>
+</html>

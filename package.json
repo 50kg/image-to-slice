@@ -1,0 +1,25 @@
+{
+  "name": "image-to-slice",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "api": "node server.js",
+    "build": "npm run build:ui && npm run build:plugin-main",
+    "build:ui": "node scripts/build-ui-html.js",
+    "build:plugin-main": "vite build --config vite.plugin-main.config.js",
+    "preview": "python3 -m http.server 4173 --bind 127.0.0.1",
+    "unit": "node --test tests/**/*.test.js",
+    "test": "npm run unit && node --check server.js && node --check dist/code.js && node --check src/plugin/main.js && node --check vite.plugin-main.config.js"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "@neplex/vectorizer": "^0.0.5",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "vite": "^8.1.5"
+  }
+}

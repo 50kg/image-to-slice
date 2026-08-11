@@ -212,10 +212,11 @@ test("Figma import idle watchdog restarts on progress and stops after completion
     }
   });
 
-  watchdog.restart();
+  watchdog.restart(5000);
   watchdog.restart();
   assert.equal(scheduled.length, 2);
-  assert.equal(scheduled[0].timeoutMs, 120000);
+  assert.equal(scheduled[0].timeoutMs, 5000);
+  assert.equal(scheduled[1].timeoutMs, 120000);
   assert.deepEqual(cleared, [scheduled[0]]);
   scheduled[1].callback();
   assert.equal(timeoutCount, 1);

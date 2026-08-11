@@ -42,11 +42,13 @@ const DEFAULT_APP_SCRIPT_PATHS = [
   path.join("src", "ui", "state", "background-decomposition.js"),
   path.join("src", "ui", "state", "html-preview-cache.js"),
   path.join("src", "ui", "state", "figma-frame-html-export-state.js"),
+  path.join("src", "ui", "state", "fig-export-mode.js"),
 
   // Backend, storage, provider, and workspace APIs.
   path.join("src", "ui", "api", "storage.js"),
   path.join("src", "ui", "api", "model-config.js"),
   path.join("src", "ui", "api", "backend-client.js"),
+  path.join("src", "ui", "api", "fig-export-client.js"),
   path.join("src", "ui", "api", "workspace-draft.js"),
 
   // DOM renderers used by app.js.

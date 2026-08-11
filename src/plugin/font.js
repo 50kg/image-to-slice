@@ -1,7 +1,5 @@
 async function loadPreferredTextFont(text, fontStyle, loadFont) {
-  const candidates = numericTextLooksLikeMetric(text)
-    ? numericFontCandidates(fontStyle).concat(cjkFontCandidates(fontStyle))
-    : cjkFontCandidates(fontStyle);
+  const candidates = cjkFontCandidates(fontStyle);
   candidates.push(
     { family: "Inter", style: fontStyle },
     { family: "Inter", style: "Regular" }
@@ -18,29 +16,15 @@ async function loadPreferredTextFont(text, fontStyle, loadFont) {
   return { family: "Inter", style: "Regular" };
 }
 
-function numericTextLooksLikeMetric(text) {
-  const value = String(text || "").trim();
-  return !!value && /^[¥￥$€£+\-−–—.,:/%()\s0-9]+$/.test(value) && /\d/.test(value);
-}
-
-function numericFontCandidates(fontStyle) {
-  const style = fontStyle === "Bold" || fontStyle === "Semi Bold" ? "Bold" : "Regular";
-  return [
-    { family: "DIN Alternate", style },
-    { family: "DIN Alternate", style: "Bold" },
-    { family: "DIN Condensed", style: "Bold" },
-    { family: "DIN 2014", style },
-    { family: "D-DIN", style },
-    { family: "Arial", style }
-  ];
-}
-
 function cjkFontCandidates(fontStyle) {
   const pingFangStyle = fontStyle === "Bold" ? "Semibold" : fontStyle === "Semi Bold" ? "Semibold" : fontStyle;
+  const notoStyle = fontStyle === "Semi Bold" ? "SemiBold" : fontStyle;
   return [
     { family: "PingFang SC", style: pingFangStyle },
     { family: "PingFang SC", style: "Regular" },
     { family: "Microsoft YaHei", style: fontStyle === "Bold" ? "Bold" : "Regular" },
+    { family: "Noto Sans SC", style: notoStyle },
+    { family: "Noto Sans SC", style: "Regular" },
     { family: "Noto Sans CJK SC", style: fontStyle === "Bold" ? "Bold" : "Regular" },
     { family: "Source Han Sans SC", style: fontStyle === "Bold" ? "Bold" : "Regular" }
   ];
@@ -62,8 +46,6 @@ function fontStyleFromWeight(weight) {
 
 module.exports = {
   loadPreferredTextFont,
-  numericTextLooksLikeMetric,
-  numericFontCandidates,
   cjkFontCandidates,
   fontStyleFromWeight
 };

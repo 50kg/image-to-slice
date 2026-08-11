@@ -54,7 +54,7 @@ function createFigmaImportIdleWatchdog({
       timer = setTimeoutImpl(() => {
         timer = null;
         onTimeout?.();
-      }, deadline);
+      }, nextDeadline);
     },
     stop() {
       if (timer === null) return;

@@ -2,7 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  createDesignRoutes
+  createDesignRoutes,
+  createFigFilename
 } = require("../../src/server/routes/design-routes");
 
 function createHarness({ payload = {} } = {}) {
@@ -11,6 +12,7 @@ function createHarness({ payload = {} } = {}) {
   const operations = [];
   const readLimits = [];
   const taskCalls = [];
+  const binaryResponses = [];
   const context = { config: { type: "openaiCompatible", model: "vision-a" } };
   const handle = createDesignRoutes({
     getTaskRequestContext: (task) => {
@@ -43,6 +45,11 @@ function createHarness({ payload = {} } = {}) {
         diagnostics: { cdpPseudoNodeCount: 2 }
       };
     },
+    exportFigManifest: async (nextPayload) => {
+      operations.push({ name: "exportFigManifest", payload: nextPayload });
+      return Uint8Array.from([80, 75, 3, 4]);
+    },
+    sendBinary: (response, status, bytes, headers) => binaryResponses.push({ response, status, bytes, headers }),
     sendJson: (response, status, body) => sent.push({ response, status, body })
   });
   return {
@@ -52,6 +59,7 @@ function createHarness({ payload = {} } = {}) {
     operations,
     readLimits,
     taskCalls,
+    binaryResponses,
     context
   };
 }
@@ -61,6 +69,32 @@ test("design routes ignore unrelated requests", async () => {
 
   assert.equal(await handle({ method: "GET", url: "/api/design/analyze-ui" }, {}), false);
   assert.deepEqual(sent, []);
+});
+
+test("POST /api/design/export-fig returns a downloadable fig file", async () => {
+  const payload = {
+    kind: "editable",
+    manifest: { screen: { name: "端午活动页", width: 750, height: 1334 }, nodes: [] }
+  };
+  const harness = createHarness({ payload });
+
+  assert.equal(
+    await harness.handle({ method: "POST", url: "/api/design/export-fig" }, {}),
+    true
+  );
+  assert.equal(harness.readLimits[0], 150 * 1024 * 1024);
+  assert.deepEqual(harness.operations[0], { name: "exportFigManifest", payload });
+  assert.equal(harness.binaryResponses[0].status, 200);
+  assert.deepEqual(harness.binaryResponses[0].bytes, Uint8Array.from([80, 75, 3, 4]));
+  assert.equal(harness.binaryResponses[0].headers["content-type"], "application/octet-stream");
+  assert.equal(
+    harness.binaryResponses[0].headers["content-disposition"],
+    "attachment; filename=\"image-to-slice.fig\"; filename*=UTF-8''%E7%AB%AF%E5%8D%88%E6%B4%BB%E5%8A%A8%E9%A1%B5.fig"
+  );
+});
+
+test("fig export keeps a safe Chinese design name in the download filename", () => {
+  assert.equal(createFigFilename("端午活动页"), "端午活动页.fig");
 });
 
 test("removed standalone AI slice route is not handled", async () => {

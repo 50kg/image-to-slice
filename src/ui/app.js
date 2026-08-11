@@ -337,8 +337,11 @@
       let lastExpandedWindow = { ...DEFAULT_UI_WINDOW };
       let saveWindowStateTimer = null;
       let resizeDrag = null;
+      const figExportUiMode = getFigExportUiMode(isEmbeddedPluginHost());
 
       initUiWindowState();
+      placeSourceButton.textContent = figExportUiMode.sliceLabel;
+      htmlPreviewImport.textContent = figExportUiMode.editableLabel;
       renderModelSettings();
       syncCharacterCount();
       renderEmptyCutModules();
@@ -1204,7 +1207,11 @@
 
       placeSourceButton.addEventListener("click", async () => {
         if (!canStartFigmaImport()) return;
-        await placeSourceInFigma();
+        if (figExportUiMode.downloadsFig) {
+          await downloadSliceFig();
+        } else {
+          await placeSourceInFigma();
+        }
       });
 
       placeAiLayersButton.addEventListener("click", async () => {
@@ -5788,7 +5795,7 @@
         htmlPreviewReadyPromise = Promise.resolve();
         htmlPreviewDownload.disabled = true;
         htmlPreviewImport.disabled = true;
-        htmlPreviewImport.title = isEmbeddedPluginHost() ? "把当前预览捕获为 Figma 可编辑图层" : "只有在 Figma 插件或模拟器里才能导入";
+        htmlPreviewImport.title = figExportUiMode.editableTitle;
         resetHtmlPreviewZoomView();
         resetHtmlPreviewInspector();
         htmlPreviewDialog.classList.add("open");
@@ -6577,7 +6584,7 @@
         initializeHtmlPreviewZoom();
         initializeHtmlPreviewInspector();
         htmlPreviewDownload.disabled = false;
-        htmlPreviewImport.disabled = !activeHtmlPreviewResult?.canonicalHtml || !isEmbeddedPluginHost();
+        htmlPreviewImport.disabled = !activeHtmlPreviewResult?.canonicalHtml;
       }
 
       function waitForHtmlPreviewReady() {
@@ -6739,9 +6746,6 @@
         if (!currentManifest) {
           return;
         }
-        if (!isEmbeddedPluginHost()) {
-          return;
-        }
         if (!activeHtmlPreviewResult?.canonicalHtml) {
           setStatus("请先打开 AI图层导入预览。", "warning");
           return;
@@ -6760,6 +6764,12 @@
             highFidelity: htmlPreviewHighFidelityCaptureEnabled
           });
           const manifest = sanitizeEditableManifestForFigma(capturedManifest);
+          if (figExportUiMode.downloadsFig) {
+            setBusy(true, "正在生成可导入 Figma 的 .fig 文件…");
+            await downloadFigManifest("editable", manifest);
+            setStatus("设计稿 .fig 已开始下载。", "success");
+            return;
+          }
           setBusy(true, "正在发送可编辑图层到 Figma…");
           const requestId = beginFigmaImportRequest();
           parent.postMessage(
@@ -6775,10 +6785,34 @@
           importPosted = true;
         } catch (error) {
           console.error("导入 H5 到 Figma 失败。", error);
-          setStatus(`导入 Figma 失败：${error.message || String(error)}`, "error");
+          setStatus(
+            `${figExportUiMode.downloadsFig ? "下载设计稿 .fig" : "导入 Figma"}失败：${error.message || String(error)}`,
+            "error"
+          );
         } finally {
           if (!importPosted) setBusy(false);
         }
+      }
+
+      async function downloadSliceFig() {
+        if (!currentManifest) return;
+        setBusy(true, "正在构建切图 .fig…");
+        try {
+          const manifest = await buildPlacementManifest(currentManifest);
+          setBusy(true, "正在生成可导入 Figma 的切图 .fig…");
+          await downloadFigManifest("slice", manifest);
+          setStatus("切图 .fig 已开始下载。", "success");
+        } catch (error) {
+          console.error("下载切图 .fig 失败。", error);
+          setStatus(`下载切图 .fig 失败：${error.message || String(error)}`, "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function downloadFigManifest(kind, manifest) {
+        const result = await requestFigExport({ kind, manifest }, { fetchBackend });
+        triggerBlobDownload(result.blob, result.filename);
       }
 
       async function captureHtmlPreviewWithWebToFigma(doc = htmlPreviewFrame.contentDocument) {

@@ -9,6 +9,7 @@ node_modules/
 *.log
 dist/*
 !dist/code.js
+!dist/figma-sim.js
 !dist/ui.html
 .idea
 .learnings

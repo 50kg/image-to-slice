@@ -4,19 +4,25 @@
   "private": true,
   "scripts": {
     "api": "node server.js",
-    "build": "npm run build:ui && npm run build:plugin-main",
+    "build": "npm run build:ui && npm run build:plugin-main && npm run build:figma-sim",
     "build:ui": "node scripts/build-ui-html.js",
     "build:plugin-main": "vite build --config vite.plugin-main.config.js",
+    "build:figma-sim": "vite build --config vite.figma-sim.config.js",
     "preview": "python3 -m http.server 4173 --bind 127.0.0.1",
     "unit": "node --test tests/**/*.test.js",
-    "test": "npm run unit && node --check server.js && node --check dist/code.js && node --check src/plugin/main.js && node --check vite.plugin-main.config.js"
+    "test": "npm run unit && node --check server.js && node --check dist/code.js && node --check dist/figma-sim.js && node --check src/plugin/main.js && node --check vite.plugin-main.config.js && node --check vite.figma-sim.config.js"
   },
   "engines": {
     "node": ">=20.19.0"
   },
   "dependencies": {
     "@neplex/vectorizer": "^0.0.5",
-    "sharp": "^0.34.5"
+    "fast-xml-parser": "^5.3.8",
+    "makerjs": "^0.19.2",
+    "openfig-core": "^0.4.1",
+    "sharp": "^0.34.5",
+    "svgpath": "^2.6.0",
+    "zstd-codec": "^0.1.5"
   },
   "devDependencies": {
     "playwright": "1.62.1",

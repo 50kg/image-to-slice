@@ -70,6 +70,9 @@ const {
 const {
   createModelConfigRoutes
 } = require("./src/server/routes/model-config-routes");
+const {
+  exportFigManifest
+} = require("./src/fig-export/export-fig");
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 18787);
@@ -152,6 +155,8 @@ const handleDesignRoutes = createDesignRoutes({
   reconstructEditableDesignH5,
   captureHighFidelityFigma: (payload) =>
     playwrightFigmaCaptureService.capture(payload),
+  exportFigManifest,
+  sendBinary,
   sendJson
 });
 const PROVIDER_TEST_IMAGE_DATA_URL = "data:image/png;base64,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";
@@ -1491,6 +1496,14 @@ function sendJson(response, statusCode, data) {
     return;
   }
   response.end(JSON.stringify(data));
+}
+
+function sendBinary(response, statusCode, data, headers = {}) {
+  response.writeHead(statusCode, {
+    "access-control-allow-origin": "*",
+    ...headers
+  });
+  response.end(Buffer.from(data));
 }
 
 function assertString(value, name) {

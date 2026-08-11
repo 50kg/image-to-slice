@@ -5,9 +5,8 @@ const {
   createUiRuntime
 } = require("./ui-runtime");
 const {
-  createUiAssetScreen,
-  createEditableDesignScreen
-} = require("./screen-importer");
+  createScreenImportRuntime
+} = require("./screen-import-runtime");
 const {
   createFigmaGenerationErrorMessage,
   prepareSelectedFigmaFrameHtmlExport
@@ -19,6 +18,15 @@ const {
 figma.showUI(__html__, { width: DEFAULT_UI_WINDOW.width, height: DEFAULT_UI_WINDOW.height, themeColors: true });
 
 const uiRuntime = createUiRuntime(figma);
+const screenImportRuntime = createScreenImportRuntime({
+  figmaApi: figma,
+  atob: typeof atob === "function" ? atob : undefined,
+  postMessage: uiRuntime.safePostMessage,
+  notifyRecoverableError: uiRuntime.notifyRecoverableError,
+  onError(error) {
+    figma.notify(`生成失败：${error?.message || String(error)}`, { error: true });
+  }
+});
 const publishFigmaFrameExportSelectionState = bindFigmaFrameExportSelectionState({
   figmaApi: figma,
   postMessage: uiRuntime.safePostMessage
@@ -29,44 +37,9 @@ uiRuntime.restoreUiWindowState().catch((error) => {
 });
 
 figma.ui.onmessage = async (message) => {
+  if (await screenImportRuntime.handle(message)) return;
+
   try {
-    if (message.type === "create-ui-asset-screen") {
-      await createUiAssetScreen({
-        figmaApi: figma,
-        atob: typeof atob === "function" ? atob : undefined,
-        notifyRecoverableError: uiRuntime.notifyRecoverableError,
-        manifest: message.manifest
-      });
-      uiRuntime.safePostMessage({
-        type: "import-success",
-        importType: "source",
-        requestId: message.requestId
-      });
-    }
-
-    if (message.type === "create-editable-design-screen") {
-      const result = await createEditableDesignScreen({
-        figmaApi: figma,
-        atob: typeof atob === "function" ? atob : undefined,
-        manifest: message.manifest,
-        onProgress: (progress) => uiRuntime.safePostMessage({
-          type: "import-progress",
-          importType: "editable",
-          requestId: message.requestId,
-          ...progress
-        })
-      });
-      uiRuntime.safePostMessage({
-        type: "import-success",
-        importType: "editable",
-        requestId: message.requestId,
-        createdCount: result.createdCount,
-        skipped: result.skipped,
-        groupedCount: result.groupedCount,
-        groupWarnings: result.groupWarnings
-      });
-    }
-
     if (message.type === "export-selected-figma-frame-html") {
       await prepareSelectedFigmaFrameHtmlExport({
         figmaApi: figma,

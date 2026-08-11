@@ -5,6 +5,8 @@ function createDesignRoutes({
   planBackgroundDecomposition,
   reconstructEditableDesignH5,
   captureHighFidelityFigma,
+  exportFigManifest,
+  sendBinary,
   sendJson
 }) {
   return async function handleDesignRoutes(request, response) {
@@ -31,10 +33,43 @@ function createDesignRoutes({
       return true;
     }
 
+    if (request.method === "POST" && request.url === "/api/design/export-fig") {
+      const payload = await readJson(request, 150 * 1024 * 1024);
+      const bytes = await exportFigManifest(payload);
+      const filename = createFigFilename(payload?.manifest?.screen?.name);
+      sendBinary(response, 200, bytes, {
+        "content-type": "application/octet-stream",
+        "content-disposition": createAttachmentDisposition(filename)
+      });
+      return true;
+    }
+
     return false;
   };
 }
 
+function createFigFilename(value) {
+  const stem = Array.from(String(value || "image-to-slice")
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}_-]+/gu, "-")
+    .replace(/^-+|-+$/g, ""))
+    .slice(0, 80)
+    .join("");
+  return `${stem || "image-to-slice"}.fig`;
+}
+
+function createAttachmentDisposition(filename) {
+  const stem = String(filename || "image-to-slice.fig").replace(/\.fig$/i, "");
+  const asciiStem = stem
+    .normalize("NFKD")
+    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  const fallback = `${asciiStem || "image-to-slice"}.fig`;
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 module.exports = {
-  createDesignRoutes
+  createDesignRoutes,
+  createFigFilename
 };

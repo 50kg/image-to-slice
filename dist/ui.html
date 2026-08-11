@@ -8438,6 +8438,29 @@ function sanitizeEditableManifestForFigma(manifest) {
   };
 }
 
+async function prepareEditableManifestForFigma(manifest, convertRasterDataUrl) {
+  const sourceImage = manifest?.sourceImage;
+  let preparedManifest = manifest;
+  if (sourceImage?.dataUrl && !isFigmaImageDataUrl(sourceImage.dataUrl)) {
+    try {
+      const dataUrl = await convertRasterDataUrl(sourceImage.dataUrl);
+      if (!isFigmaImageDataUrl(dataUrl)) {
+        throw new Error("转换结果不是 PNG 或 JPEG");
+      }
+      preparedManifest = {
+        ...manifest,
+        sourceImage: {
+          ...sourceImage,
+          dataUrl
+        }
+      };
+    } catch (error) {
+      throw new Error(`参考原图无法转换为 PNG 或 JPEG：${error?.message || String(error)}`);
+    }
+  }
+  return sanitizeEditableManifestForFigma(preparedManifest);
+}
+
 function dedupeReferenceAssetNodes(nodes) {
   const seen = new Set();
   return nodes.filter((node) => {
@@ -8655,6 +8678,7 @@ if (typeof module !== "undefined") {
     isFigmaImageDataUrl,
     isSvgDataUrl,
     normalizeWebToFigmaAssetDataUrl,
+    prepareEditableManifestForFigma,
     resolveCapturedSemanticGroup,
     resolveCapturedZIndex,
     resolveWebToFigmaAssetDataUrl,
@@ -16954,10 +16978,13 @@ if (typeof module !== "undefined") {
       async function buildPlacementManifest(manifest) {
         const activeImage = getActiveResultImage();
         ensureImageSliceState(activeImage);
-        const assets = (activeImage?.sliceManifest?.assets || []).map((asset) => ({
+        const assets = await Promise.all((activeImage?.sliceManifest?.assets || []).map(async (asset) => ({
           ...asset,
+          ...(!asset.svgData && asset.dataUrl ? {
+            dataUrl: await ensurePngOrJpegDataUrl(asset.dataUrl)
+          } : {}),
           selected: isSliceAssetIncludedForImport(asset)
-        }));
+        })));
         const previewDataUrl = await createRepairedPreviewImage(activeImage);
         return {
           ...manifest,
@@ -18242,7 +18269,10 @@ if (typeof module !== "undefined") {
           const capturedManifest = await captureHtmlPreviewAsEditableManifest({
             highFidelity: htmlPreviewHighFidelityCaptureEnabled
           });
-          const manifest = sanitizeEditableManifestForFigma(capturedManifest);
+          const manifest = await prepareEditableManifestForFigma(
+            capturedManifest,
+            ensurePngOrJpegDataUrl
+          );
           if (figExportUiMode.downloadsFig) {
             setBusy(true, "正在生成可导入 Figma 的 .fig 文件…");
             await downloadFigManifest("editable", manifest);

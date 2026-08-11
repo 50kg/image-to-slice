@@ -5475,10 +5475,13 @@
       async function buildPlacementManifest(manifest) {
         const activeImage = getActiveResultImage();
         ensureImageSliceState(activeImage);
-        const assets = (activeImage?.sliceManifest?.assets || []).map((asset) => ({
+        const assets = await Promise.all((activeImage?.sliceManifest?.assets || []).map(async (asset) => ({
           ...asset,
+          ...(!asset.svgData && asset.dataUrl ? {
+            dataUrl: await ensurePngOrJpegDataUrl(asset.dataUrl)
+          } : {}),
           selected: isSliceAssetIncludedForImport(asset)
-        }));
+        })));
         const previewDataUrl = await createRepairedPreviewImage(activeImage);
         return {
           ...manifest,
@@ -6763,7 +6766,10 @@
           const capturedManifest = await captureHtmlPreviewAsEditableManifest({
             highFidelity: htmlPreviewHighFidelityCaptureEnabled
           });
-          const manifest = sanitizeEditableManifestForFigma(capturedManifest);
+          const manifest = await prepareEditableManifestForFigma(
+            capturedManifest,
+            ensurePngOrJpegDataUrl
+          );
           if (figExportUiMode.downloadsFig) {
             setBusy(true, "正在生成可导入 Figma 的 .fig 文件…");
             await downloadFigManifest("editable", manifest);

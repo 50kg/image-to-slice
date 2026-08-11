@@ -70,6 +70,29 @@ function sanitizeEditableManifestForFigma(manifest) {
   };
 }
 
+async function prepareEditableManifestForFigma(manifest, convertRasterDataUrl) {
+  const sourceImage = manifest?.sourceImage;
+  let preparedManifest = manifest;
+  if (sourceImage?.dataUrl && !isFigmaImageDataUrl(sourceImage.dataUrl)) {
+    try {
+      const dataUrl = await convertRasterDataUrl(sourceImage.dataUrl);
+      if (!isFigmaImageDataUrl(dataUrl)) {
+        throw new Error("转换结果不是 PNG 或 JPEG");
+      }
+      preparedManifest = {
+        ...manifest,
+        sourceImage: {
+          ...sourceImage,
+          dataUrl
+        }
+      };
+    } catch (error) {
+      throw new Error(`参考原图无法转换为 PNG 或 JPEG：${error?.message || String(error)}`);
+    }
+  }
+  return sanitizeEditableManifestForFigma(preparedManifest);
+}
+
 function dedupeReferenceAssetNodes(nodes) {
   const seen = new Set();
   return nodes.filter((node) => {
@@ -287,6 +310,7 @@ if (typeof module !== "undefined") {
     isFigmaImageDataUrl,
     isSvgDataUrl,
     normalizeWebToFigmaAssetDataUrl,
+    prepareEditableManifestForFigma,
     resolveCapturedSemanticGroup,
     resolveCapturedZIndex,
     resolveWebToFigmaAssetDataUrl,

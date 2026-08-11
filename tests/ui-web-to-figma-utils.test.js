@@ -9,6 +9,7 @@ const {
   isFigmaImageDataUrl,
   isSvgDataUrl,
   normalizeWebToFigmaAssetDataUrl,
+  prepareEditableManifestForFigma,
   resolveCapturedSemanticGroup,
   resolveCapturedZIndex,
   resolveWebToFigmaAssetDataUrl,
@@ -102,6 +103,34 @@ test("sanitizeEditableManifestForFigma drops unsupported image and empty SVG nod
   assert.equal(result.metadata.droppedInvalidImageNodes, 3);
   assert.deepEqual(result.nodes.map((node) => node.name), ["valid", undefined]);
   assert.deepEqual(result.nodes[1].children.map((node) => node.name), ["ok-svg"]);
+});
+
+test("prepareEditableManifestForFigma converts an unsupported source reference to PNG", async () => {
+  const webp = "data:image/webp;base64,webp-source";
+  const png = "data:image/png;base64,png-source";
+  const manifest = {
+    sourceImage: { dataUrl: webp, name: "source.webp" },
+    nodes: [{ type: "text", name: "title", text: "测试" }]
+  };
+
+  const result = await prepareEditableManifestForFigma(manifest, async (dataUrl) => {
+    assert.equal(dataUrl, webp);
+    return png;
+  });
+
+  assert.deepEqual(result.sourceImage, { dataUrl: png, name: "source.webp" });
+  assert.equal(result.nodes.length, 1);
+  assert.equal(manifest.sourceImage.dataUrl, webp);
+});
+
+test("prepareEditableManifestForFigma rejects a source reference that cannot become PNG or JPEG", async () => {
+  await assert.rejects(
+    prepareEditableManifestForFigma(
+      { sourceImage: { dataUrl: "data:image/gif;base64,gif-source" }, nodes: [] },
+      async () => "data:image/gif;base64,still-gif"
+    ),
+    /参考原图无法转换为 PNG 或 JPEG/
+  );
 });
 
 test("dedupeReferenceAssetNodes removes duplicate source asset placements only", () => {

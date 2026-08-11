@@ -48,8 +48,9 @@ function createFigmaImportIdleWatchdog({
   const deadline = Math.max(1, Math.round(Number(timeoutMs) || 120000));
   let timer = null;
   return {
-    restart() {
+    restart(timeoutOverrideMs = deadline) {
       if (timer !== null) clearTimeoutImpl(timer);
+      const nextDeadline = Math.max(1, Math.round(Number(timeoutOverrideMs) || deadline));
       timer = setTimeoutImpl(() => {
         timer = null;
         onTimeout?.();

@@ -313,15 +313,20 @@
       let figmaFrameHtmlExportTimeoutId = null;
       let figmaFrameHtmlExportSelectionEligible = false;
       let figmaFrameHtmlExportSelectionReason = "请在 Figma 中选择一个完整画板";
-      const FIGMA_FRAME_HTML_EXPORT_TIMEOUT_MS = 120000;
-      const FIGMA_IMPORT_IDLE_TIMEOUT_MS = 120000;
+      const FIGMA_FRAME_HTML_EXPORT_TIMEOUT_MS = 15000;
+      const FIGMA_SOURCE_IMPORT_IDLE_TIMEOUT_MS = 5000;
+      const FIGMA_EDITABLE_IMPORT_IDLE_TIMEOUT_MS = 15000;
+      let activeFigmaImportIdleTimeoutMs = FIGMA_EDITABLE_IMPORT_IDLE_TIMEOUT_MS;
       const figmaImportIdleWatchdog = createFigmaImportIdleWatchdog({
-        timeoutMs: FIGMA_IMPORT_IDLE_TIMEOUT_MS,
+        timeoutMs: FIGMA_EDITABLE_IMPORT_IDLE_TIMEOUT_MS,
         onTimeout: () => {
           if (!figmaImportPending || !activeFigmaImportRequestId) return;
           const timedOutRequestId = activeFigmaImportRequestId;
           finishFigmaImportRequest(timedOutRequestId);
-          setStatus("Figma 导入已连续 120 秒没有返回进度，已结束等待。请确认 Figma 状态后再重试。", "error");
+          setStatus(
+            `Figma 导入已连续 ${Math.round(activeFigmaImportIdleTimeoutMs / 1000)} 秒没有返回进度，已结束等待。请确认 Figma 状态后再重试。`,
+            "error"
+          );
         }
       });
       let workspaceOperationRunning = false;
@@ -1376,14 +1381,15 @@
         }
       }
 
-      function beginFigmaImportRequest() {
+      function beginFigmaImportRequest(timeoutMs = FIGMA_EDITABLE_IMPORT_IDLE_TIMEOUT_MS) {
         const requestId = createFigmaImportRequestId(
           Date.now(),
           ++figmaImportRequestSequence
         );
         activeFigmaImportRequestId = requestId;
         figmaImportPending = true;
-        figmaImportIdleWatchdog.restart();
+        activeFigmaImportIdleTimeoutMs = timeoutMs;
+        figmaImportIdleWatchdog.restart(timeoutMs);
         updateFigmaFrameHtmlExportButtonState();
         return requestId;
       }
@@ -1480,7 +1486,7 @@
           && activeImportMessage.type === "import-progress"
           && activeImportMessage.importType === "editable"
         ) {
-          figmaImportIdleWatchdog.restart();
+          figmaImportIdleWatchdog.restart(activeFigmaImportIdleTimeoutMs);
           setBusy(
             true,
             `正在导入 ${activeImportMessage.processedCount} / ${activeImportMessage.totalCount} 个图层…`
@@ -5582,7 +5588,7 @@
           return;
         }
 
-        const requestId = beginFigmaImportRequest();
+        const requestId = beginFigmaImportRequest(FIGMA_SOURCE_IMPORT_IDLE_TIMEOUT_MS);
         parent.postMessage(
           {
             pluginMessage: {
@@ -7216,7 +7222,7 @@
               ? captureHtmlPreviewWithPlaywright(doc, screen)
               : captureHtmlPreviewWithWebToFigma(doc),
             mapCapture: (capture) => mapWebToFigmaCaptureToEditableManifest(capture, { fixedSize: true }),
-            timeoutMs: highFidelity ? 60000 : 15000
+            timeoutMs: highFidelity ? 15000 : 8000
           });
         } finally {
           cleanupCapturePseudos();

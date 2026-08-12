@@ -10,6 +10,7 @@ function createAiInpaintResultPair({
   const composite = {
     ...compositeAsset,
     name: `${baseName}_局部合成`,
+    placement: compositeAsset?.placement ? { ...compositeAsset.placement } : compositeAsset?.placement,
     dataUrl: compositeDataUrl,
     aiCompletedDataUrl: compositeDataUrl,
     selected: true,
@@ -24,6 +25,7 @@ function createAiInpaintResultPair({
       ...composite,
       id,
       name,
+      placement: composite.placement ? { ...composite.placement } : composite.placement,
       dataUrl,
       aiCompletedDataUrl: dataUrl,
       selected: true,

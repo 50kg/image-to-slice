@@ -50,6 +50,18 @@ test("gradientTransformFromAngle preserves legacy quadrant mapping", () => {
   assert.deepEqual(gradientTransformFromAngle(0), [[0, -1, 1], [1, 0, 0]]);
 });
 
+test("gradientTransformFromAngle preserves diagonal angles instead of snapping to a quadrant", () => {
+  const transform = gradientTransformFromAngle(45);
+
+  assert.notDeepEqual(transform, gradientTransformFromAngle(90));
+  assert.ok(Math.abs(transform[0][0] - Math.SQRT1_2) < 1e-12);
+  assert.ok(Math.abs(transform[0][1] + Math.SQRT1_2) < 1e-12);
+  assert.ok(Math.abs(transform[0][2] - 0.5) < 1e-12);
+  assert.ok(Math.abs(transform[1][0] - Math.SQRT1_2) < 1e-12);
+  assert.ok(Math.abs(transform[1][1] - Math.SQRT1_2) < 1e-12);
+  assert.ok(Math.abs(transform[1][2] - (0.5 - Math.SQRT1_2)) < 1e-12);
+});
+
 test("createLinearGradientPaint sorts stops and multiplies opacity", () => {
   const paint = createLinearGradientPaint({
     angle: 90,
@@ -77,6 +89,24 @@ test("createRadialGradientPaint uses identity transform", () => {
 
   assert.equal(paint.type, "GRADIENT_RADIAL");
   assert.deepEqual(paint.gradientTransform, [[1, 0, 0], [0, 1, 0]]);
+});
+
+test("linear and radial gradient paints preserve fractional stop positions", () => {
+  const gradient = {
+    stops: [-0.2, 0.33, 0.5, 0.66, 1.2].map((position) => ({
+      position,
+      color: "#ffffff"
+    }))
+  };
+
+  assert.deepEqual(
+    createLinearGradientPaint(gradient, 1).gradientStops.map((stop) => stop.position),
+    [0, 0.33, 0.5, 0.66, 1]
+  );
+  assert.deepEqual(
+    createRadialGradientPaint(gradient, 1).gradientStops.map((stop) => stop.position),
+    [0, 0.33, 0.5, 0.66, 1]
+  );
 });
 
 test("createAngularGradientPaint creates a centered editable angular fill", () => {

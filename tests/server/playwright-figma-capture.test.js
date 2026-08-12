@@ -30,6 +30,29 @@ function findCaptureNodes(node, predicate, results = []) {
   return results;
 }
 
+test("Playwright capture retries Chromium launch after a transient failure", async () => {
+  let launches = 0;
+  const service = createPlaywrightFigmaCaptureService({
+    chromium: {
+      async launch() {
+        launches += 1;
+        if (launches === 1) throw new Error("transient launch failure");
+        return {
+          async newContext() {
+            throw new Error("second launch reached browser");
+          }
+        };
+      }
+    },
+    captureRuntime: "runtime"
+  });
+
+  const payload = { html: '<div class="screen"></div>', width: 10, height: 10 };
+  await assert.rejects(service.capture(payload), /transient launch failure/);
+  await assert.rejects(service.capture(payload), /second launch reached browser/);
+  assert.equal(launches, 2);
+});
+
 test("high-fidelity capture validates its HTML and fixed screen size", async () => {
   const service = createPlaywrightFigmaCaptureService({
     chromium,

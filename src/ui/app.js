@@ -196,12 +196,13 @@
         }
         try {
           const revision = workspaceDraftRevision;
-          workspaceDraftWritePromise = workspaceDraftWritePromise.then(() => persistActiveWorkspaceDraft(snapshot));
+          workspaceDraftWritePromise = workspaceDraftWritePromise
+            .catch(() => {})
+            .then(() => persistActiveWorkspaceDraft(snapshot));
           await workspaceDraftWritePromise;
           if (revision === workspaceDraftRevision) workspaceDraftDirty = false;
           return true;
         } catch (error) {
-          workspaceDraftWritePromise = Promise.resolve();
           console.warn("写入切图记录失败：", error);
           return new Error(`写入切图记录失败：${error.message || String(error)}`);
         }
@@ -292,6 +293,8 @@
       let isRestoringWorkspaceDraft = false;
       let editablePreviewController = null;
       let editablePreviewProgressId = "";
+      let editablePreviewRequestSequence = 0;
+      let activeEditablePreviewRequestId = 0;
       let editablePreviewTimer = null;
       let editablePreviewStartedAt = 0;
       let backgroundDecompositionRequest = null;
@@ -737,7 +740,9 @@
           if (sliceSettingsDrawer.classList.contains("open") && sliceSettingsId === activeSliceId) {
             renderSliceSettingsDrawer();
           }
-          updateSliceAssetCrop(activeSliceId).then(() => renderCutModules(currentManifest));
+          updateSliceAssetCrop(activeSliceId)
+            .then(() => renderCutModules(currentManifest))
+            .catch((error) => setStatus(`更新切图裁剪失败：${error.message || String(error)}`, "error"));
           return;
         }
         if ((event.key !== "Delete" && event.key !== "Backspace") || event.target.closest("input, textarea, select, [contenteditable='true']")) {
@@ -1156,7 +1161,7 @@
           setStatus(`生成失败：${error.message || String(error)}`, "error");
         } finally {
           stopProgress();
-          setBusy(false);
+          releaseBusyIfIdle();
         }
       });
 
@@ -1829,10 +1834,13 @@
         ];
       }
 
-      function renderResults(manifest) {
+      function renderResults(manifest, {
+        resultIndex = 0,
+        sliceId = null
+      } = {}) {
         sidebar.classList.add("has-result");
-        activeResultIndex = 0;
-        activeSliceId = null;
+        activeResultIndex = Math.max(0, Math.min(Number(resultIndex) || 0, manifest.resultImages.length - 1));
+        activeSliceId = sliceId;
         sliceEdit = null;
         repairPreviewActive = false;
         repairPreviewButton.textContent = "预览补齐";
@@ -2636,7 +2644,7 @@
             sliceImageEditorState.progressId = null;
             updateSliceImageEditorUi();
           }
-          setBusy(false);
+          releaseBusyIfIdle();
         }
       }
 
@@ -2650,7 +2658,7 @@
         sliceImageEditorState.progressLabel = "";
         updateSliceImageEditorUi();
         hideStatus();
-        setBusy(false);
+        releaseBusyIfIdle();
       }
 
       function clampSliceSettingsPosition(left, top, width, height) {
@@ -3283,10 +3291,11 @@
           `;
         });
 
+        const selectedAssetIds = new Set(getSelectedSliceAssets().map((asset) => asset.id));
         const boxes = visibleAssets.map((asset, index) => {
           const placement = asset.placement;
           const radii = getSliceRadii(asset, currentManifest?.screen);
-          const selected = isSliceSelected(asset.id);
+          const selected = selectedAssetIds.has(asset.id);
           const renderedWidth = placement.width * scaleX;
           const renderedHeight = placement.height * scaleY;
           const radiusInsets = Object.fromEntries(Object.entries(radii).map(([corner, radius]) => [
@@ -3524,7 +3533,7 @@
         sliceAiControllers.delete(id);
         if (aiCompletePreview?.sliceId === id) aiCompletePreview = null;
         setSliceAiProcessing(asset, "", false);
-        setBusy(false);
+        releaseBusyIfIdle();
       }
 
       function startAiProgressPolling(progressId, onProgress) {
@@ -4826,7 +4835,7 @@
         } catch (error) {
           setStatus(`透明化失败：${error.message || String(error)}`, "error");
         } finally {
-          setBusy(false);
+          releaseBusyIfIdle();
         }
       }
 
@@ -4884,7 +4893,7 @@
           setStatus(`批量透明化失败：${error.message || String(error)}`, "error");
         } finally {
           if (changed) scheduleWorkspaceDraftSave();
-          setBusy(false);
+          releaseBusyIfIdle();
         }
       }
 
@@ -4942,7 +4951,7 @@
           finishSliceAiRequest(asset, controller);
           if (aiCompletePreview?.sliceId === id) aiCompletePreview = null;
           setSliceAiProcessing(asset, "", false);
-          setBusy(false);
+          releaseBusyIfIdle();
         }
       }
 
@@ -5188,7 +5197,7 @@
           stopProgress();
           finishSliceAiRequest(asset, controller);
           setSliceAiProcessing(asset, "", false);
-          setBusy(false);
+          releaseBusyIfIdle();
         }
       }
 
@@ -5242,14 +5251,14 @@
           ];
 
           assets.forEach((asset, index) => {
-            const basename = sanitizeFilename(asset.name || `slice_${index + 1}`);
+            const exportedAsset = manifest.assets[index];
             files.push({
-              name: `assets/${basename}.png`,
+              name: exportedAsset.filename,
               data: dataUrlToUint8Array(asset.dataUrl)
             });
             if (asset.svgData) {
               files.push({
-                name: `assets/${basename}.svg`,
+                name: exportedAsset.svgFilename,
                 data: textToUint8Array(asset.svgData)
               });
             }
@@ -5529,6 +5538,14 @@
 
       function canStartFigmaImport() {
         if (!currentManifest) return false;
+        if (!canStartFigmaImportOperation({
+          uiBusy,
+          figmaImportPending,
+          figmaFrameHtmlExportPending
+        })) {
+          setStatus("已有操作正在进行，请等待完成后再导入 Figma。", "warning");
+          return false;
+        }
         if (hasRunningSliceAiTasks()) {
           setStatus("仍有 AI 生成任务正在进行，请等待任务结束或取消任务后再导入 Figma。", "warning");
           return false;
@@ -5580,9 +5597,7 @@
       }
 
       async function placeSourceInFigma() {
-        if (!currentManifest) {
-          return;
-        }
+        if (!canStartFigmaImport()) return;
         if (!isEmbeddedPluginHost()) {
           return;
         }
@@ -5613,6 +5628,10 @@
 
       async function previewEditableDesignHtml(forceRecognition = false) {
         if (!currentManifest) {
+          return;
+        }
+        if (editablePreviewController) {
+          setStatus("AI图层导入预览正在生成，请等待完成或先取消。", "warning");
           return;
         }
         if (!hasConfiguredVisionAccess()) {
@@ -5653,8 +5672,10 @@
           }
         }
         const controller = new AbortController();
+        const requestId = ++editablePreviewRequestSequence;
         const progressId = createAiProgressId("editable_preview");
         editablePreviewController = controller;
+        activeEditablePreviewRequestId = requestId;
         editablePreviewProgressId = progressId;
         openEditablePreviewLoadingDialog();
         const stopProgress = startAiProgressPolling(progressId, (progress) => {
@@ -5671,6 +5692,12 @@
             progressId,
             previewContext.localAssets
           );
+          if (!isActiveHtmlPreviewRequest(requestId, {
+            activeRequestId: activeEditablePreviewRequestId,
+            aborted: controller.signal.aborted
+          })) {
+            return;
+          }
           if (!result.html) {
             throw new Error("后端没有返回 AI图层导入预览");
           }
@@ -5698,8 +5725,12 @@
           showEditablePreviewLoadingError(message);
         } finally {
           stopProgress();
-          if (editablePreviewController === controller) {
+          if (
+            editablePreviewController === controller
+            && activeEditablePreviewRequestId === requestId
+          ) {
             editablePreviewController = null;
+            activeEditablePreviewRequestId = 0;
             editablePreviewProgressId = "";
             if (!keepLoadingDialogOpen) closeEditablePreviewLoadingDialog();
           }
@@ -6746,9 +6777,7 @@
       }
 
       async function importHtmlPreviewToFigma() {
-        if (!currentManifest) {
-          return;
-        }
+        if (!canStartFigmaImport()) return;
         if (!activeHtmlPreviewResult?.canonicalHtml) {
           setStatus("请先打开 AI图层导入预览。", "warning");
           return;
@@ -7724,9 +7753,13 @@
         event.preventDefault();
         const id = editingWorkspaceDraftNoteId;
         if (!id) return;
-        await updateWorkspaceDraftNoteApi(id, recordNoteInput.value, { fetchBackend });
-        closeRecordNoteDialog();
-        await renderWorkspaceDraftList();
+        try {
+          await updateWorkspaceDraftNoteApi(id, recordNoteInput.value, { fetchBackend });
+          closeRecordNoteDialog();
+          await renderWorkspaceDraftList();
+        } catch (error) {
+          setStatus(`切图记录备注保存失败：${error.message || String(error)}`, "error");
+        }
       }
 
       async function openWorkspaceDraft(id) {
@@ -7748,7 +7781,7 @@
             setStatus(`切图记录保存失败，无法切换记录：${error.message || String(error)}`, "error");
             return;
           }
-          throw error;
+          setStatus(`切换切图记录失败：${error.message || String(error)}`, "error");
         } finally {
           setDraftsLoading(false);
           setWorkspaceOperationRunning(false);
@@ -7770,7 +7803,7 @@
             setStatus(`切图记录保存失败，无法创建副本：${error.message || String(error)}`, "error");
             return;
           }
-          throw error;
+          setStatus(`创建切图记录副本失败：${error.message || String(error)}`, "error");
         } finally {
           setDraftsLoading(false);
           setWorkspaceOperationRunning(false);
@@ -7823,10 +7856,10 @@
           syncCharacterCount();
           updateModeVisibility();
           renderReferenceImages();
-          renderResults(currentManifest);
-          activeResultIndex = Math.max(0, Math.min(Number(draft.activeResultIndex) || 0, currentManifest.resultImages.length - 1));
-          activeSliceId = draft.activeSliceId || null;
-          renderActiveResult(currentManifest);
+          renderResults(currentManifest, {
+            resultIndex: draft.activeResultIndex,
+            sliceId: draft.activeSliceId || null
+          });
           renderCutModules(currentManifest);
           clearSliceHistory();
           setImportActionsDisabled(false);
@@ -8327,7 +8360,22 @@
         syncGlobalLoadingState();
       }
 
+      function releaseBusyIfIdle() {
+        if (hasRunningSliceAiTasks() || figmaImportPending || figmaFrameHtmlExportPending) {
+          return false;
+        }
+        setBusy(false);
+        return true;
+      }
+
       function resetHtmlPreviewCache() {
+        if (editablePreviewController) {
+          editablePreviewController.abort();
+          editablePreviewController = null;
+          editablePreviewProgressId = "";
+          closeEditablePreviewLoadingDialog();
+        }
+        activeEditablePreviewRequestId = 0;
         htmlPreviewCache = createEmptyHtmlPreviewCache();
         activeHtmlPreviewResult = null;
         activeHtmlPreviewAssets = [];

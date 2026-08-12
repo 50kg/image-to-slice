@@ -126,7 +126,7 @@ test("duplicateDraft copies draft file and activates copy", async () => {
   const source = await store.saveDraft(createDraft("Screen", 1));
   tick = 2000;
 
-  const copy = store.duplicateDraft(source.id);
+  const copy = await store.duplicateDraft(source.id);
 
   assert.equal(copy.id, "draft_1jk");
   assert.equal(copy.title, "Screen 副本");
@@ -146,7 +146,7 @@ test("deleteDraft removes record, clears active id, and deletes draft file", asy
   const draftPath = store.getDraftPath(item.id);
 
   assert.equal(fs.existsSync(draftPath), true);
-  assert.equal(store.deleteDraft(item.id), true);
+  assert.equal(await store.deleteDraft(item.id), true);
   assert.equal(fs.existsSync(draftPath), false);
   assert.equal(store.loadIndex().activeDraftId, null);
   assert.equal(store.loadIndex().records.length, 0);
@@ -163,11 +163,11 @@ test("updateDraftNote trims note, limits length, and updates timestamp", async (
   const item = await store.saveDraft(createDraft());
   tick = 2000;
 
-  const updated = store.updateDraftNote(item.id, `  ${"a".repeat(90)}  `);
+  const updated = await store.updateDraftNote(item.id, `  ${"a".repeat(90)}  `);
 
   assert.equal(updated.note, "a".repeat(80));
   assert.equal(updated.updatedAt, 2000);
-  assert.equal(store.updateDraftNote("missing", "note"), null);
+  assert.equal(await store.updateDraftNote("missing", "note"), null);
 });
 
 test("activateDraft sets active draft and returns item", async () => {
@@ -178,22 +178,68 @@ test("activateDraft sets active draft and returns item", async () => {
     now: () => 1000
   });
   const item = await store.saveDraft(createDraft());
-  store.setActiveDraftId(null);
+  await store.setActiveDraftId(null);
 
-  const activated = store.activateDraft(item.id);
+  const activated = await store.activateDraft(item.id);
 
   assert.equal(activated.id, item.id);
   assert.equal(store.loadIndex().activeDraftId, item.id);
-  assert.equal(store.activateDraft("missing"), null);
+  assert.equal(await store.activateDraft("missing"), null);
 });
 
-test("setRestorePreference accepts restore/new and falls back to ask", () => {
+test("setRestorePreference accepts restore/new and falls back to ask", async () => {
   const store = createWorkspaceDraftStore({ historyDir: tempHistoryDir() });
 
-  assert.equal(store.setRestorePreference("restore"), "restore");
-  assert.equal(store.setRestorePreference("new"), "new");
-  assert.equal(store.setRestorePreference("invalid"), "ask");
+  assert.equal(await store.setRestorePreference("restore"), "restore");
+  assert.equal(await store.setRestorePreference("new"), "new");
+  assert.equal(await store.setRestorePreference("invalid"), "ask");
   assert.equal(store.loadIndex().restorePreference, "ask");
+});
+
+test("workspace mutations serialize thumbnail work and preserve invocation order", async () => {
+  const historyDir = tempHistoryDir();
+  const resolvers = [];
+  const store = createWorkspaceDraftStore({
+    historyDir,
+    createThumbnail: () => new Promise((resolve) => resolvers.push(resolve)),
+    now: () => 1000
+  });
+
+  const firstSave = store.saveDraft(createDraft("First", 1));
+  const secondSave = store.saveDraft(createDraft("Second", 2));
+  await Promise.resolve();
+  assert.equal(resolvers.length, 1);
+
+  resolvers[0]("thumb-first");
+  const first = await firstSave;
+  await Promise.resolve();
+  assert.equal(resolvers.length, 2);
+  resolvers[1]("thumb-second");
+  const second = await secondSave;
+
+  assert.notEqual(first.id, second.id);
+  assert.deepEqual(store.loadIndex().records.map((record) => record.title), ["Second", "First"]);
+  assert.equal(store.loadIndex().activeDraftId, second.id);
+  assert.deepEqual(store.loadDraft(first.id), createDraft("First", 1));
+  assert.deepEqual(store.loadDraft(second.id), createDraft("Second", 2));
+});
+
+test("workspace mutation queue recovers after a failed save", async () => {
+  let attempt = 0;
+  const store = createWorkspaceDraftStore({
+    historyDir: tempHistoryDir(),
+    createThumbnail: async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error("thumbnail failed");
+      return "thumb";
+    },
+    now: () => 1000
+  });
+
+  await assert.rejects(store.saveDraft(createDraft("Failed")), /thumbnail failed/);
+  const saved = await store.saveDraft(createDraft("Recovered"));
+  assert.equal(saved.title, "Recovered");
+  assert.equal(store.loadIndex().records.length, 1);
 });
 
 test("title and slice count match legacy rules", () => {

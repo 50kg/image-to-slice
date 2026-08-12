@@ -11,12 +11,12 @@ function createHarness({ payload = {}, store = {} } = {}) {
     loadIndex: () => ({ activeDraftId: null, restorePreference: "ask", records: [] }),
     loadDraft: () => null,
     saveDraft: async () => ({ id: "draft_a" }),
-    setActiveDraftId: () => {},
-    setRestorePreference: (preference) => ["restore", "new"].includes(preference) ? preference : "ask",
-    duplicateDraft: () => null,
-    updateDraftNote: () => null,
-    activateDraft: () => null,
-    deleteDraft: () => true,
+    setActiveDraftId: async () => {},
+    setRestorePreference: async (preference) => ["restore", "new"].includes(preference) ? preference : "ask",
+    duplicateDraft: async () => null,
+    updateDraftNote: async () => null,
+    activateDraft: async () => null,
+    deleteDraft: async () => true,
     ...store
   };
   const handle = createWorkspaceRoutes({

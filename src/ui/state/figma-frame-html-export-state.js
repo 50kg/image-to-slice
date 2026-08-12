@@ -73,6 +73,14 @@ function canStartFigmaFrameHtmlExport({
   return selectionEligible && !uiBusy && !figmaImportPending && !figmaFrameHtmlExportPending;
 }
 
+function canStartFigmaImportOperation({
+  uiBusy = false,
+  figmaImportPending = false,
+  figmaFrameHtmlExportPending = false
+} = {}) {
+  return !uiBusy && !figmaImportPending && !figmaFrameHtmlExportPending;
+}
+
 function createFigmaFrameHtmlExportSelectionNotice() {
   return {
     type: "show-notification",
@@ -206,6 +214,7 @@ function normalizeFigmaImportRequestId(requestId) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    canStartFigmaImportOperation,
     canStartFigmaFrameHtmlExport,
     completeFigmaOperation,
     createFigmaImportIdleWatchdog,

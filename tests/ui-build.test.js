@@ -10,7 +10,8 @@ const {
   DEFAULT_VENDOR_SCRIPT_PATHS,
   STYLE_PLACEHOLDER,
   VENDOR_SCRIPT_PLACEHOLDER,
-  buildUiHtml
+  buildUiHtml,
+  buildUiHtmlFile
 } = require("../scripts/build-ui-html");
 
 test("inlined app functions do not shadow shared module functions", () => {
@@ -68,6 +69,37 @@ test("buildUiHtml inlines capture runtime and vendor scripts separately", () => 
     buildUiHtml(template, "", "window.app = true;", "window.vendor = true;", "window.capture = true;"),
     "<style>\n\n</style>\n<script type=\"text/plain\">\nwindow.capture = true;\n</script>\n<script>\nwindow.vendor = true;\n</script>\n<script>\nwindow.app = true;\n</script>"
   );
+});
+
+test("buildUiHtmlFile rejects missing required app sources and placeholders", () => {
+  const os = require("node:os");
+  const path = require("node:path");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "figma-ui-build-test-"));
+  const templatePath = path.join(directory, "template.html");
+  const stylesPath = path.join(directory, "styles.css");
+  fs.writeFileSync(stylesPath, "body{}", "utf8");
+  fs.writeFileSync(templatePath, `<style>\n${STYLE_PLACEHOLDER}\n</style><script>\n${APP_SCRIPT_PLACEHOLDER}\n</script>`, "utf8");
+
+  assert.throws(() => buildUiHtmlFile({
+    templatePath,
+    stylesPath,
+    appScriptPaths: [path.join(directory, "missing.js")],
+    captureRuntimePaths: [],
+    vendorScriptPaths: [],
+    outputPath: path.join(directory, "ui.html")
+  }), /missing required app script/i);
+
+  const appPath = path.join(directory, "app.js");
+  fs.writeFileSync(appPath, "window.app = true;", "utf8");
+  fs.writeFileSync(templatePath, `<style>\n${STYLE_PLACEHOLDER}\n</style>`, "utf8");
+  assert.throws(() => buildUiHtmlFile({
+    templatePath,
+    stylesPath,
+    appScriptPaths: [appPath],
+    captureRuntimePaths: [],
+    vendorScriptPaths: [],
+    outputPath: path.join(directory, "ui.html")
+  }), /missing.*UI_APP_SCRIPT/i);
 });
 
 test("default UI build paths keep vendor scripts before app bootstrap", () => {
@@ -384,7 +416,7 @@ test("AI layer capture waits for the calibrated screen document", () => {
   );
   assert.match(
     appSource,
-    /runFastVendorCapture\(\{[\s\S]*?timeoutMs:\s*highFidelity\s*\?\s*60000\s*:\s*15000/
+    /runFastVendorCapture\(\{[\s\S]*?timeoutMs:\s*highFidelity\s*\?\s*15000\s*:\s*8000/
   );
   assert.doesNotMatch(appSource, /captureHtmlPreviewAsEditableManifestFallback/);
   assert.doesNotMatch(appSource, /captureFallback\s*:/);
@@ -494,13 +526,15 @@ test("AI layer import capture paths do not truncate node definitions", () => {
 
 test("editable Figma import reports batch progress and partial success", () => {
   const appSource = fs.readFileSync("src/ui/app.js", "utf8");
-  const pluginSource = fs.readFileSync("src/plugin/main.js", "utf8");
+  const pluginSource = [
+    fs.readFileSync("src/plugin/main.js", "utf8"),
+    fs.readFileSync("src/plugin/screen-import-runtime.js", "utf8"),
+    fs.readFileSync("src/plugin/screen-importer.js", "utf8")
+  ].join("\n");
 
   assert.match(pluginSource, /type:\s*"import-progress"/);
-  assert.match(pluginSource, /createdCount:\s*result\.createdCount/);
-  assert.match(pluginSource, /skipped:\s*result\.skipped/);
-  assert.match(pluginSource, /groupedCount:\s*result\.groupedCount/);
-  assert.match(pluginSource, /groupWarnings:\s*result\.groupWarnings/);
+  assert.match(pluginSource, /return \{ createdCount, skipped, groupedCount, groupWarnings \}/);
+  assert.match(pluginSource, /type:\s*"import-success"[\s\S]*?\.\.\.result/);
   assert.match(appSource, /activeImportMessage\.type === "import-progress"/);
   assert.match(appSource, /正在导入 \$\{activeImportMessage\.processedCount\} \/ \$\{activeImportMessage\.totalCount\} 个图层/);
   assert.match(pluginSource, /requestId:\s*message\.requestId/);
@@ -950,4 +984,26 @@ test("Figma generation errors notify natively only when UI posting fails", () =>
 
   assert.match(mainSource, /const errorPosted = uiRuntime\.safePostMessage/);
   assert.match(mainSource, /if \(!errorPosted\)\s*\{\s*figma\.notify/);
+});
+
+test("UI reliability guards recover queued work and keep concurrent operations isolated", () => {
+  const appSource = fs.readFileSync("src/ui/app.js", "utf8");
+
+  assert.match(
+    appSource,
+    /workspaceDraftWritePromise = workspaceDraftWritePromise\s*\.catch\(\(\) => \{\}\)\s*\.then\(\(\) => persistActiveWorkspaceDraft\(snapshot\)\)/
+  );
+  assert.match(appSource, /updateSliceAssetCrop\(activeSliceId\)\s*\.then\([^;]+\)\s*\.catch\(/);
+  assert.match(appSource, /function releaseBusyIfIdle\(\)/);
+  assert.match(appSource, /function cancelSliceAiRequest[\s\S]*?releaseBusyIfIdle\(\)/);
+  assert.match(appSource, /async function saveWorkspaceDraftNote[\s\S]*?切图记录备注保存失败/);
+  assert.match(appSource, /async function openWorkspaceDraft[\s\S]*?切换切图记录失败/);
+  assert.match(appSource, /async function duplicateActiveWorkspaceDraft[\s\S]*?创建切图记录副本失败/);
+  assert.match(appSource, /const selectedAssetIds = new Set\(getSelectedSliceAssets\(\)\.map\(\(asset\) => asset\.id\)\)/);
+
+  const restoreSource = appSource.match(
+    /async function restoreWorkspaceDraft\(draft\)[\s\S]*?\n      async function fetchAppWithTimeout/
+  )?.[0] || "";
+  assert.match(restoreSource, /renderResults\(currentManifest, \{\s*resultIndex: draft\.activeResultIndex,\s*sliceId: draft\.activeSliceId \|\| null\s*\}\)/);
+  assert.doesNotMatch(restoreSource, /renderActiveResult\(currentManifest\)/);
 });

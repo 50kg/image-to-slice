@@ -205,9 +205,17 @@ function parseCssGradientStop(value, index, count) {
 
 function cssGradientDirectionToAngle(value) {
   const text = String(value || "").toLowerCase();
-  if (text.includes("right")) return 90;
-  if (text.includes("left")) return 270;
-  if (text.includes("top")) return 0;
+  const top = text.includes("top");
+  const right = text.includes("right");
+  const bottom = text.includes("bottom");
+  const left = text.includes("left");
+  if (top && right) return 45;
+  if (bottom && right) return 135;
+  if (bottom && left) return 225;
+  if (top && left) return 315;
+  if (right) return 90;
+  if (left) return 270;
+  if (top) return 0;
   return 180;
 }
 

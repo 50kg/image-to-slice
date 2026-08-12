@@ -83,6 +83,13 @@ function getHtmlPreviewCacheOpenRecovery(error) {
   };
 }
 
+function isActiveHtmlPreviewRequest(requestId, {
+  activeRequestId = 0,
+  aborted = false
+} = {}) {
+  return !aborted && Number(requestId) > 0 && Number(requestId) === Number(activeRequestId);
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     createHtmlPreviewCacheEntry,
@@ -90,6 +97,7 @@ if (typeof module !== "undefined") {
     getCachedHtmlPreview,
     getHtmlPreviewCacheOpenRecovery,
     getHtmlPreviewCacheReuseState,
+    isActiveHtmlPreviewRequest,
     isSupportedHtmlPreviewResult,
     normalizeHtmlPreviewCache
   };

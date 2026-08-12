@@ -49,6 +49,13 @@ test("AI inpaint produces raw and locally composited slice assets", () => {
   assert.equal("aiCompleteSourceAssetId" in pair.rawFull, false);
   assert.equal("svgRestoreState" in pair.rawFull, false);
   assert.equal(source.name, "完整背景");
+
+  assert.notEqual(pair.composite.placement, source.placement);
+  assert.notEqual(pair.rawFull.placement, source.placement);
+  assert.notEqual(pair.rawFull.placement, pair.composite.placement);
+  pair.composite.placement.x = 99;
+  assert.equal(source.placement.x, 10);
+  assert.equal(pair.rawFull.placement.x, 10);
 });
 
 test("AI inpaint result roles expose distinct slice-list type labels", () => {

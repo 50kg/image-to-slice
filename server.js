@@ -97,6 +97,7 @@ const handleWorkspaceRoutes = createWorkspaceRoutes({
 });
 const localConfig = loadLocalConfig(CONFIG_FILE);
 let modelConfigState = normalizeModelConfigState(localConfig);
+let modelConfigMutationQueue = Promise.resolve();
 let vectorizerModulePromise = null;
 let sharpModulePromise = null;
 const aiProgressJobs = new Map();
@@ -115,7 +116,7 @@ const handleModelConfigRoutes = createModelConfigRoutes({
   readJson,
   sendJson,
   getState: () => modelConfigState,
-  commitState: commitModelConfigState,
+  mutateState: mutateModelConfigState,
   createId: createModelConfigId,
   validateModelConfigInput,
   summarizeModelConfig,
@@ -231,9 +232,32 @@ server.listen(PORT, HOST, () => {
   console.log(`Model configs: ${modelConfigState.modelConfigs.length}`);
 });
 
-function commitModelConfigState(nextState) {
-  saveLocalConfigFile(CONFIG_FILE, nextState);
-  modelConfigState = nextState;
+let shutdownPromise = null;
+function shutdownServer() {
+  if (shutdownPromise) return shutdownPromise;
+  shutdownPromise = Promise.allSettled([
+    playwrightFigmaCaptureService.close(),
+    new Promise((resolve) => server.close(resolve))
+  ]).then(() => {});
+  return shutdownPromise;
+}
+
+process.once("SIGINT", () => {
+  shutdownServer().finally(() => process.exit(0));
+});
+process.once("SIGTERM", () => {
+  shutdownServer().finally(() => process.exit(0));
+});
+
+function mutateModelConfigState(mutator) {
+  const result = modelConfigMutationQueue.then(() => {
+    const nextState = mutator(modelConfigState);
+    saveLocalConfigFile(CONFIG_FILE, nextState);
+    modelConfigState = nextState;
+    return nextState;
+  });
+  modelConfigMutationQueue = result.catch(() => {});
+  return result;
 }
 
 function getTaskRequestContext(task) {

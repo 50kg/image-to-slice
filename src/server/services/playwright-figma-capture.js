@@ -26,7 +26,11 @@ function createPlaywrightFigmaCaptureService({
 
   async function getBrowser() {
     if (!browserPromise) {
-      browserPromise = chromium.launch({ headless: true });
+      const launchPromise = chromium.launch({ headless: true });
+      browserPromise = launchPromise;
+      launchPromise.catch(() => {
+        if (browserPromise === launchPromise) browserPromise = null;
+      });
     }
     return browserPromise;
   }
@@ -123,8 +127,9 @@ function createPlaywrightFigmaCaptureService({
   }
 
   async function close() {
-    const activeBrowser = await browserPromise;
+    const activeBrowserPromise = browserPromise;
     browserPromise = null;
+    const activeBrowser = await activeBrowserPromise;
     if (activeBrowser) {
       await activeBrowser.close();
     }

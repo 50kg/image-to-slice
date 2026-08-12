@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  canStartFigmaImportOperation,
   canStartFigmaFrameHtmlExport,
   completeFigmaOperation,
   createFigmaImportIdleWatchdog,
@@ -17,6 +18,13 @@ const {
   readFigmaFrameHtmlExportData,
   readFigmaFrameHtmlExportSelectionState
 } = require("../src/ui/state/figma-frame-html-export-state");
+
+test("Figma import can start only when UI and both Figma operations are idle", () => {
+  assert.equal(canStartFigmaImportOperation(), true);
+  assert.equal(canStartFigmaImportOperation({ uiBusy: true }), false);
+  assert.equal(canStartFigmaImportOperation({ figmaImportPending: true }), false);
+  assert.equal(canStartFigmaImportOperation({ figmaFrameHtmlExportPending: true }), false);
+});
 
 test("export button remains clickable but unavailable without a selected frame", () => {
   assert.deepEqual(getFigmaFrameHtmlExportButtonState({

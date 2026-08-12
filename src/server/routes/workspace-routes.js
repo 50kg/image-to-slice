@@ -20,7 +20,7 @@ function createWorkspaceRoutes({ workspaceDraftStore, readJson, sendJson }) {
     }
 
     if (request.method === "DELETE" && request.url === "/api/workspace-draft") {
-      workspaceDraftStore.setActiveDraftId(null);
+      await workspaceDraftStore.setActiveDraftId(null);
       sendJson(response, 200, { ok: true });
       return true;
     }
@@ -36,14 +36,14 @@ function createWorkspaceRoutes({ workspaceDraftStore, readJson, sendJson }) {
 
     if (request.method === "POST" && request.url === "/api/workspace-restore-preference") {
       const payload = await readJson(request);
-      const restorePreference = workspaceDraftStore.setRestorePreference(payload.preference);
+      const restorePreference = await workspaceDraftStore.setRestorePreference(payload.preference);
       sendJson(response, 200, { ok: true, restorePreference });
       return true;
     }
 
     const duplicateDraftMatch = request.url.match(/^\/api\/workspace-drafts\/([A-Za-z0-9_-]+)\/duplicate$/);
     if (request.method === "POST" && duplicateDraftMatch) {
-      const copy = workspaceDraftStore.duplicateDraft(duplicateDraftMatch[1]);
+      const copy = await workspaceDraftStore.duplicateDraft(duplicateDraftMatch[1]);
       if (!copy) {
         sendJson(response, 404, { error: "Workspace draft not found" });
         return true;
@@ -55,7 +55,7 @@ function createWorkspaceRoutes({ workspaceDraftStore, readJson, sendJson }) {
     const draftNoteMatch = request.url.match(/^\/api\/workspace-drafts\/([A-Za-z0-9_-]+)\/note$/);
     if (request.method === "POST" && draftNoteMatch) {
       const payload = await readJson(request);
-      const item = workspaceDraftStore.updateDraftNote(draftNoteMatch[1], payload.note);
+      const item = await workspaceDraftStore.updateDraftNote(draftNoteMatch[1], payload.note);
       if (!item) {
         sendJson(response, 404, { error: "Workspace draft not found" });
         return true;
@@ -66,7 +66,7 @@ function createWorkspaceRoutes({ workspaceDraftStore, readJson, sendJson }) {
 
     const workspaceDraftMatch = request.url.match(/^\/api\/workspace-drafts\/([A-Za-z0-9_-]+)$/);
     if (request.method === "GET" && workspaceDraftMatch) {
-      const item = workspaceDraftStore.activateDraft(workspaceDraftMatch[1]);
+      const item = await workspaceDraftStore.activateDraft(workspaceDraftMatch[1]);
       if (!item) {
         sendJson(response, 404, { error: "Workspace draft not found" });
         return true;
@@ -76,7 +76,7 @@ function createWorkspaceRoutes({ workspaceDraftStore, readJson, sendJson }) {
     }
 
     if (request.method === "DELETE" && workspaceDraftMatch) {
-      workspaceDraftStore.deleteDraft(workspaceDraftMatch[1]);
+      await workspaceDraftStore.deleteDraft(workspaceDraftMatch[1]);
       sendJson(response, 200, { ok: true });
       return true;
     }

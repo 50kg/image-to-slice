@@ -101,6 +101,27 @@ test("createEditableNode loads preferred font and creates text nodes", async () 
   assert.deepEqual(loadedFonts[0], { family: "PingFang SC", style: "Semibold" });
 });
 
+test("createEditableNode ignores non-numeric letter spacing and accepts pixel values", async () => {
+  const loadedFonts = [];
+  const figmaApi = {
+    createText: () => createResizableNode("TEXT"),
+    loadFontAsync: async (font) => loadedFonts.push(font)
+  };
+
+  const normal = await createEditableNode({
+    figmaApi,
+    definition: { type: "text", text: "Normal", letterSpacing: "normal", width: 100, height: 20 }
+  });
+  const pixels = await createEditableNode({
+    figmaApi,
+    definition: { type: "text", text: "Pixels", letterSpacing: "1.5px", width: 100, height: 20 }
+  });
+
+  assert.equal("letterSpacing" in normal, false);
+  assert.deepEqual(pixels.letterSpacing, { unit: "PIXELS", value: 1.5 });
+  assert.equal(loadedFonts.length, 2);
+});
+
 test("createEditableNode creates frames with nested children", async () => {
   const frame = createResizableNode("FRAME");
   const child = createResizableNode("RECTANGLE");

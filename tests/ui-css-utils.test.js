@@ -53,6 +53,22 @@ test("parseCssGradient reads linear and radial gradients", () => {
   });
 });
 
+test("parseCssGradient preserves both axes of corner directions", () => {
+  const cases = [
+    ["to top right", 45],
+    ["to bottom right", 135],
+    ["to bottom left", 225],
+    ["to top left", 315]
+  ];
+
+  for (const [direction, angle] of cases) {
+    assert.equal(
+      parseCssGradient(`linear-gradient(${direction}, #000 0%, #fff 100%)`).angle,
+      angle
+    );
+  }
+});
+
 test("Figma gradient parsing rejects multi-layer CSS backgrounds instead of dropping their base color", () => {
   assert.deepEqual(parseFigmaCompatibleCssGradient({
     backgroundImage: "linear-gradient(90deg, #111 0%, #eee 100%)"

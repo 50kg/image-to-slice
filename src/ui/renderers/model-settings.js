@@ -7,6 +7,9 @@ function getModelConfigTestButtonState(config) {
   if (declaredResults.length !== config.tasks.length || declaredResults.length === 0) {
     return { text: "测试", tone: "neutral" };
   }
+  if (!declaredResults.every((result) => result.status === "success")) {
+    return { text: "测试", tone: "neutral" };
+  }
   const inpaint = results.inpaint;
   if (config.tasks.includes("inpaint") && inpaint?.status === "success") {
     return inpaint.nativeMaskSupported

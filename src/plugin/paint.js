@@ -65,7 +65,10 @@ function createEditableFills(definition, fallbackHex) {
 function createLinearGradientPaint(gradient, opacity) {
   const stops = gradient.stops
     .map((stop, index) => ({
-      position: clampNumber(Number(stop.position), 0, 1, index / Math.max(1, gradient.stops.length - 1)),
+      position: clampUnitFloat(
+        Number(stop.position),
+        index / Math.max(1, gradient.stops.length - 1)
+      ),
       color: hexToRgbColor(stop.color || "#FFFFFF", (stop.opacity === undefined ? 1 : stop.opacity) * clampOpacity(opacity))
     }))
     .sort((a, b) => a.position - b.position);
@@ -79,7 +82,10 @@ function createLinearGradientPaint(gradient, opacity) {
 function createRadialGradientPaint(gradient, opacity) {
   const stops = gradient.stops
     .map((stop, index) => ({
-      position: clampNumber(Number(stop.position), 0, 1, index / Math.max(1, gradient.stops.length - 1)),
+      position: clampUnitFloat(
+        Number(stop.position),
+        index / Math.max(1, gradient.stops.length - 1)
+      ),
       color: hexToRgbColor(stop.color || "#FFFFFF", (stop.opacity === undefined ? 1 : stop.opacity) * clampOpacity(opacity))
     }))
     .sort((a, b) => a.position - b.position);
@@ -125,17 +131,20 @@ function angularGradientTransformFromAngle(angle) {
 }
 
 function gradientTransformFromAngle(angle) {
-  const normalized = ((Number(angle) % 360) + 360) % 360;
-  if (normalized >= 45 && normalized < 135) {
-    return [[1, 0, 0], [0, 1, 0]];
-  }
-  if (normalized >= 135 && normalized < 225) {
-    return [[0, 1, 0], [-1, 0, 1]];
-  }
-  if (normalized >= 225 && normalized < 315) {
-    return [[-1, 0, 1], [0, -1, 1]];
-  }
-  return [[0, -1, 1], [1, 0, 0]];
+  const normalized = (((Number(angle) || 0) % 360) + 360) % 360;
+  const radians = normalized * Math.PI / 180;
+  const sin = Math.sin(radians);
+  const cos = Math.cos(radians);
+  const clean = (value) => {
+    if (Math.abs(value) < 1e-12) return 0;
+    if (Math.abs(value - 1) < 1e-12) return 1;
+    if (Math.abs(value + 1) < 1e-12) return -1;
+    return value;
+  };
+  return [
+    [clean(sin), clean(-cos), clean(0.5 - sin / 2 + cos / 2)],
+    [clean(cos), clean(sin), clean(0.5 - cos / 2 - sin / 2)]
+  ];
 }
 
 function hexToRgbColor(hex, opacity) {

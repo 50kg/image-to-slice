@@ -8,8 +8,16 @@ function buildSliceExportManifest({
   getSliceRadii
 }) {
   const screen = manifest.screen;
+  const usedFilenames = new Set();
   const assets = activeImage.sliceManifest.assets.map((asset, index) => {
-    const filename = `assets/${exportManifestSanitizeFilename(asset.name || `slice_${index + 1}`)}.png`;
+    const basename = exportManifestSanitizeFilename(asset.name || `slice_${index + 1}`);
+    let filename = `assets/${basename}.png`;
+    let duplicateIndex = 2;
+    while (usedFilenames.has(filename)) {
+      filename = `assets/${basename}--${duplicateIndex}.png`;
+      duplicateIndex += 1;
+    }
+    usedFilenames.add(filename);
     return {
       id: asset.id,
       name: asset.name,

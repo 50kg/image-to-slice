@@ -17,6 +17,12 @@ test("normalizeVectorSvg preserves other svg attributes", () => {
   assert.equal(result, '<svg width="12" height="34" viewBox="0 0 12 34" xmlns="http://www.w3.org/2000/svg" fill="none"><path /></svg>');
 });
 
+test("normalizeVectorSvg removes single-quoted and mixed-case root size attributes", () => {
+  const result = normalizeVectorSvg("<svg WIDTH='10' height='20' viewbox='0 0 1 2' fill='none'><path /></svg>", 100, 200);
+
+  assert.equal(result, '<svg width="100" height="200" viewBox="0 0 100 200" fill=\'none\'><path /></svg>');
+});
+
 test("normalizeVectorSvg rejects missing svg tags", () => {
   assert.throws(() => normalizeVectorSvg("<path />", 1, 1), /SVG/);
 });

@@ -104,6 +104,13 @@ function buildUiHtmlFile({
 } = {}) {
   const templateHtml = fs.readFileSync(templatePath, "utf8");
   const stylesCss = fs.readFileSync(stylesPath, "utf8");
+  const missingAppScriptPaths = appScriptPaths.filter((appScriptPath) => !fs.existsSync(appScriptPath));
+  if (missingAppScriptPaths.length) {
+    throw new Error(`Missing required app script: ${missingAppScriptPaths.join(", ")}`);
+  }
+  if (!templateHtml.includes(APP_SCRIPT_PLACEHOLDER)) {
+    throw new Error(`UI template missing ${APP_SCRIPT_PLACEHOLDER}`);
+  }
   const captureRuntime = captureRuntimePaths
     .filter((captureRuntimePath) => fs.existsSync(captureRuntimePath))
     .map((captureRuntimePath) => fs.readFileSync(captureRuntimePath, "utf8"));
@@ -111,7 +118,6 @@ function buildUiHtmlFile({
     .filter((vendorScriptPath) => fs.existsSync(vendorScriptPath))
     .map((vendorScriptPath) => fs.readFileSync(vendorScriptPath, "utf8"));
   const appScript = appScriptPaths
-    .filter((appScriptPath) => fs.existsSync(appScriptPath))
     .map((appScriptPath) => fs.readFileSync(appScriptPath, "utf8"));
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, buildUiHtml(templateHtml, stylesCss, appScript, vendorScript, captureRuntime));

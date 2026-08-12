@@ -41,6 +41,20 @@ test("test button distinguishes success, failure, and native Mask support", () =
   })), { text: "支持 Mask", tone: "success" });
 });
 
+test("pending or unknown model test results never render as success", () => {
+  assert.deepEqual(getModelConfigTestButtonState(fixture({
+    tasks: ["vision"],
+    testResults: { vision: { status: "pending" } }
+  })), { text: "测试", tone: "neutral" });
+  assert.deepEqual(getModelConfigTestButtonState(fixture({
+    tasks: ["generation", "inpaint"],
+    testResults: {
+      generation: { status: "success" },
+      inpaint: { status: "running", nativeMaskSupported: true }
+    }
+  })), { text: "测试", tone: "neutral" });
+});
+
 test("config cards escape dynamic values and expose one unified test action", () => {
   const html = renderModelConfigListView({
     modelConfigs: [fixture({

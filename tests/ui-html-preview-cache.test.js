@@ -7,8 +7,24 @@ const {
   getCachedHtmlPreview,
   getHtmlPreviewCacheOpenRecovery,
   getHtmlPreviewCacheReuseState,
+  isActiveHtmlPreviewRequest,
   normalizeHtmlPreviewCache
 } = require("../src/ui/state/html-preview-cache");
+
+test("HTML preview responses are accepted only from the current non-aborted request", () => {
+  assert.equal(isActiveHtmlPreviewRequest(2, {
+    activeRequestId: 2,
+    aborted: false
+  }), true);
+  assert.equal(isActiveHtmlPreviewRequest(1, {
+    activeRequestId: 2,
+    aborted: false
+  }), false);
+  assert.equal(isActiveHtmlPreviewRequest(2, {
+    activeRequestId: 2,
+    aborted: true
+  }), false);
+});
 
 test("HTML preview cache stores canonical schema v2 without asset bytes", () => {
   let cache = createEmptyHtmlPreviewCache();

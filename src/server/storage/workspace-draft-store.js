@@ -6,6 +6,7 @@ const zlib = require("zlib");
 function createWorkspaceDraftStore({ historyDir, createThumbnail = async () => "", now = () => Date.now() }) {
   const indexFile = path.join(historyDir, "index.json");
   let indexCache = null;
+  let mutationQueue = Promise.resolve();
 
   function defaultIndex() {
     return { version: 1, activeDraftId: null, restorePreference: "ask", records: [] };
@@ -55,93 +56,134 @@ function createWorkspaceDraftStore({ historyDir, createThumbnail = async () => "
     fs.renameSync(temporaryFile, indexFile);
   }
 
+  function enqueueMutation(mutation) {
+    const result = mutationQueue.then(mutation);
+    mutationQueue = result.catch(() => {});
+    return result;
+  }
+
+  function copyIndex() {
+    const index = loadIndex();
+    return {
+      ...index,
+      records: index.records.map((record) => ({ ...record }))
+    };
+  }
+
+  function createUniqueDraftId(timestamp, index) {
+    const baseId = `draft_${timestamp.toString(36)}`;
+    let id = baseId;
+    let suffix = 2;
+    while (index.records.some((record) => record.id === id) || fs.existsSync(getDraftPath(id))) {
+      id = `${baseId}_${suffix}`;
+      suffix += 1;
+    }
+    return id;
+  }
+
   async function saveDraft(draft, draftId) {
     if (!draft || typeof draft !== "object") throw badRequest("Invalid workspace draft");
-    const index = loadIndex();
-    let item = draftId ? index.records.find((candidate) => candidate.id === draftId) : null;
-    if (item) {
-      item.updatedAt = now();
-      item.title = getWorkspaceDraftTitle(draft);
-      item.sliceCount = getWorkspaceDraftSliceCount(draft);
-    } else {
-      item = createWorkspaceDraftItem(draft, now);
-      index.records.unshift(item);
-    }
-    if (!item.thumbnail) item.thumbnail = await createThumbnail(draft);
-    ensureHistoryDir();
-    const draftPath = getDraftPath(item.id);
-    const temporaryPath = `${draftPath}.tmp`;
-    const compressed = zlib.gzipSync(Buffer.from(JSON.stringify(draft)), { level: 1 });
-    fs.writeFileSync(temporaryPath, compressed, { mode: 0o600 });
-    fs.renameSync(temporaryPath, draftPath);
-    index.activeDraftId = item.id;
-    saveIndex(index);
-    return item;
+    return enqueueMutation(async () => {
+      const index = copyIndex();
+      let item = draftId ? index.records.find((candidate) => candidate.id === draftId) : null;
+      if (item) {
+        item.updatedAt = now();
+        item.title = getWorkspaceDraftTitle(draft);
+        item.sliceCount = getWorkspaceDraftSliceCount(draft);
+      } else {
+        const timestamp = now();
+        item = createWorkspaceDraftItem(draft, () => timestamp);
+        item.id = createUniqueDraftId(timestamp, index);
+        index.records.unshift(item);
+      }
+      if (!item.thumbnail) item.thumbnail = await createThumbnail(draft);
+      ensureHistoryDir();
+      const draftPath = getDraftPath(item.id);
+      const temporaryPath = `${draftPath}.tmp`;
+      const compressed = zlib.gzipSync(Buffer.from(JSON.stringify(draft)), { level: 1 });
+      fs.writeFileSync(temporaryPath, compressed, { mode: 0o600 });
+      fs.renameSync(temporaryPath, draftPath);
+      index.activeDraftId = item.id;
+      saveIndex(index);
+      return item;
+    });
   }
 
   function duplicateDraft(id) {
-    const index = loadIndex();
-    const source = index.records.find((record) => record.id === id);
-    if (!source) return null;
-    const timestamp = now();
-    const copy = {
-      ...source,
-      id: `draft_${timestamp.toString(36)}`,
-      title: `${source.title} 副本`,
-      note: `${source.note || source.title || "未命名记录"} 副本`.slice(0, 80),
-      createdAt: timestamp,
-      updatedAt: timestamp
-    };
-    ensureHistoryDir();
-    fs.copyFileSync(getDraftPath(source.id), getDraftPath(copy.id));
-    index.records.unshift(copy);
-    index.activeDraftId = copy.id;
-    saveIndex(index);
-    return copy;
+    return enqueueMutation(() => {
+      const index = copyIndex();
+      const source = index.records.find((record) => record.id === id);
+      if (!source) return null;
+      const timestamp = now();
+      const copy = {
+        ...source,
+        id: createUniqueDraftId(timestamp, index),
+        title: `${source.title} 副本`,
+        note: `${source.note || source.title || "未命名记录"} 副本`.slice(0, 80),
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+      ensureHistoryDir();
+      fs.copyFileSync(getDraftPath(source.id), getDraftPath(copy.id));
+      index.records.unshift(copy);
+      index.activeDraftId = copy.id;
+      saveIndex(index);
+      return copy;
+    });
   }
 
   function updateDraftNote(id, note) {
-    const index = loadIndex();
-    const item = index.records.find((record) => record.id === id);
-    if (!item) return null;
-    item.note = typeof note === "string" ? note.trim().slice(0, 80) : "";
-    item.updatedAt = now();
-    saveIndex(index);
-    return item;
+    return enqueueMutation(() => {
+      const index = copyIndex();
+      const item = index.records.find((record) => record.id === id);
+      if (!item) return null;
+      item.note = typeof note === "string" ? note.trim().slice(0, 80) : "";
+      item.updatedAt = now();
+      saveIndex(index);
+      return item;
+    });
   }
 
   function activateDraft(id) {
-    const index = loadIndex();
-    const item = index.records.find((record) => record.id === id);
-    if (!item) return null;
-    index.activeDraftId = item.id;
-    saveIndex(index);
-    return item;
+    return enqueueMutation(() => {
+      const index = copyIndex();
+      const item = index.records.find((record) => record.id === id);
+      if (!item) return null;
+      index.activeDraftId = item.id;
+      saveIndex(index);
+      return item;
+    });
   }
 
   function deleteDraft(id) {
-    const index = loadIndex();
-    const beforeCount = index.records.length;
-    index.records = index.records.filter((item) => item.id !== id);
-    if (index.activeDraftId === id) index.activeDraftId = null;
-    const draftPath = getDraftPath(id);
-    if (fs.existsSync(draftPath)) fs.unlinkSync(draftPath);
-    saveIndex(index);
-    return index.records.length !== beforeCount;
+    return enqueueMutation(() => {
+      const index = copyIndex();
+      const beforeCount = index.records.length;
+      index.records = index.records.filter((item) => item.id !== id);
+      if (index.activeDraftId === id) index.activeDraftId = null;
+      const draftPath = getDraftPath(id);
+      if (fs.existsSync(draftPath)) fs.unlinkSync(draftPath);
+      saveIndex(index);
+      return index.records.length !== beforeCount;
+    });
   }
 
   function setActiveDraftId(id) {
-    const index = loadIndex();
-    index.activeDraftId = typeof id === "string" ? id : null;
-    saveIndex(index);
-    return index;
+    return enqueueMutation(() => {
+      const index = copyIndex();
+      index.activeDraftId = typeof id === "string" ? id : null;
+      saveIndex(index);
+      return index;
+    });
   }
 
   function setRestorePreference(preference) {
-    const index = loadIndex();
-    index.restorePreference = ["restore", "new"].includes(preference) ? preference : "ask";
-    saveIndex(index);
-    return index.restorePreference;
+    return enqueueMutation(() => {
+      const index = copyIndex();
+      index.restorePreference = ["restore", "new"].includes(preference) ? preference : "ask";
+      saveIndex(index);
+      return index.restorePreference;
+    });
   }
 
   return {

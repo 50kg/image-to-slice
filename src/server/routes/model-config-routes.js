@@ -5,7 +5,7 @@ function createModelConfigRoutes({
   readJson,
   sendJson,
   getState,
-  commitState,
+  mutateState,
   createId,
   validateModelConfigInput,
   summarizeModelConfig,
@@ -15,9 +15,9 @@ function createModelConfigRoutes({
 }) {
   return async function handleModelConfigRoutes(request, response) {
     const pathname = parsePathname(request.url);
-    const state = getState();
 
     if (request.method === "GET" && pathname === "/api/model-configs") {
+      const state = getState();
       sendJson(response, 200, summarizeState(state, summarizeModelConfig));
       return true;
     }
@@ -29,21 +29,26 @@ function createModelConfigRoutes({
         id: createId(),
         testResults: {}
       });
-      const nextState = cloneState(state);
-      nextState.modelConfigs.push(config);
-      await commitState(nextState);
+      await mutateState((state) => {
+        const nextState = cloneState(state);
+        nextState.modelConfigs.push(config);
+        return nextState;
+      });
       sendJson(response, 201, { config: summarizeModelConfig(config) });
       return true;
     }
 
     if (request.method === "POST" && pathname === "/api/model-configs/preview/models") {
       const payload = await readJson(request);
+      const state = getState();
       const config = createPreviewConfig(payload, state, validateModelConfigInput);
-      const result = await listProviderModels({
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        signal: request.signal
-      });
+      const result = await withRequestAbortSignal(request, response, (signal) => (
+        listProviderModels({
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey,
+          signal
+        })
+      ));
       sendJson(response, 200, result);
       return true;
     }
@@ -54,6 +59,7 @@ function createModelConfigRoutes({
       && typeof testModelConfig === "function"
     ) {
       const payload = await readJson(request);
+      const state = getState();
       const config = createPreviewConfig(payload, state, validateModelConfigInput);
       const result = await testModelConfig(config);
       sendJson(response, 200, {
@@ -69,24 +75,29 @@ function createModelConfigRoutes({
     if (request.method === "PUT" && taskMatch) {
       const task = decodeSegment(taskMatch[1]);
       const payload = await readJson(request);
-      const nextState = cloneState(state);
+      let config;
+      const nextState = await mutateState((state) => {
+        const nextState = cloneState(state);
+        if (task === "image") {
+          nextState.taskRouting.generation = String(payload.configId || "");
+          nextState.taskRouting.inpaint = String(payload.configId || "");
+          config = resolveTaskConfig(nextState, MODEL_TASKS.GENERATION);
+          resolveTaskConfig(nextState, MODEL_TASKS.INPAINT);
+          return nextState;
+        }
+        if (!Object.values(MODEL_TASKS).includes(task)) throw badRequest("模型任务类型无效");
+        nextState.taskRouting[task] = String(payload.configId || "");
+        config = resolveTaskConfig(nextState, task);
+        return nextState;
+      });
       if (task === "image") {
-        nextState.taskRouting.generation = String(payload.configId || "");
-        nextState.taskRouting.inpaint = String(payload.configId || "");
-        const generationConfig = resolveTaskConfig(nextState, MODEL_TASKS.GENERATION);
-        resolveTaskConfig(nextState, MODEL_TASKS.INPAINT);
-        await commitState(nextState);
         sendJson(response, 200, {
           purpose: "image",
-          config: summarizeModelConfig(generationConfig),
+          config: summarizeModelConfig(config),
           taskRouting: { ...nextState.taskRouting }
         });
         return true;
       }
-      if (!Object.values(MODEL_TASKS).includes(task)) throw badRequest("模型任务类型无效");
-      nextState.taskRouting[task] = String(payload.configId || "");
-      const config = resolveTaskConfig(nextState, task);
-      await commitState(nextState);
       sendJson(response, 200, {
         task,
         config: summarizeModelConfig(config),
@@ -99,38 +110,45 @@ function createModelConfigRoutes({
     if (!configMatch) return false;
     const configId = decodeSegment(configMatch[1]);
     const action = configMatch[2] ? decodeSegment(configMatch[2]) : "";
-    const existingIndex = state.modelConfigs.findIndex((item) => item.id === configId);
-    if (existingIndex < 0) throw notFound(`模型配置不存在：${configId}`);
-    const existing = state.modelConfigs[existingIndex];
 
     if (request.method === "PUT" && !action) {
       const payload = await readJson(request);
-      const hasApiKey = Object.prototype.hasOwnProperty.call(payload, "apiKey");
-      const merged = {
-        ...existing,
-        ...payload,
-        id: existing.id,
-        apiKey: hasApiKey ? payload.apiKey : existing.apiKey
-      };
-      if (hasMaterialConfigChange(existing, merged)) merged.testResults = {};
-      const config = validateModelConfigInput(merged);
-      const nextState = cloneState(state);
-      nextState.modelConfigs[existingIndex] = config;
-      clearInvalidRoutes(nextState, config.id);
-      await commitState(nextState);
+      let config;
+      await mutateState((state) => {
+        const existingIndex = state.modelConfigs.findIndex((item) => item.id === configId);
+        if (existingIndex < 0) throw notFound(`模型配置不存在：${configId}`);
+        const existing = state.modelConfigs[existingIndex];
+        const hasApiKey = Object.prototype.hasOwnProperty.call(payload, "apiKey");
+        const merged = {
+          ...existing,
+          ...payload,
+          id: existing.id,
+          apiKey: hasApiKey ? payload.apiKey : existing.apiKey
+        };
+        if (hasMaterialConfigChange(existing, merged)) merged.testResults = {};
+        config = validateModelConfigInput(merged);
+        const nextState = cloneState(state);
+        nextState.modelConfigs[existingIndex] = config;
+        clearInvalidRoutes(nextState, config.id);
+        return nextState;
+      });
       sendJson(response, 200, { config: summarizeModelConfig(config) });
       return true;
     }
 
     if (request.method === "DELETE" && !action) {
-      const nextState = cloneState(state);
-      for (const task of Object.values(MODEL_TASKS)) {
-        if (nextState.taskRouting[task] === configId) {
-          nextState.taskRouting[task] = null;
+      const nextState = await mutateState((state) => {
+        const existingIndex = state.modelConfigs.findIndex((item) => item.id === configId);
+        if (existingIndex < 0) throw notFound(`模型配置不存在：${configId}`);
+        const nextState = cloneState(state);
+        for (const task of Object.values(MODEL_TASKS)) {
+          if (nextState.taskRouting[task] === configId) {
+            nextState.taskRouting[task] = null;
+          }
         }
-      }
-      nextState.modelConfigs.splice(existingIndex, 1);
-      await commitState(nextState);
+        nextState.modelConfigs.splice(existingIndex, 1);
+        return nextState;
+      });
       sendJson(response, 200, {
         ok: true,
         deletedId: configId,
@@ -138,6 +156,11 @@ function createModelConfigRoutes({
       });
       return true;
     }
+
+    const state = getState();
+    const existingIndex = state.modelConfigs.findIndex((item) => item.id === configId);
+    if (existingIndex < 0) throw notFound(`模型配置不存在：${configId}`);
+    const existing = state.modelConfigs[existingIndex];
 
     if (request.method === "POST" && action === "reveal-key") {
       if (!existing.apiKey) throw notFound(`模型配置“${existing.name}”没有已保存的 API Key`);
@@ -147,11 +170,13 @@ function createModelConfigRoutes({
     }
 
     if (request.method === "POST" && action === "models") {
-      const result = await listProviderModels({
-        baseUrl: existing.baseUrl,
-        apiKey: existing.apiKey,
-        signal: request.signal
-      });
+      const result = await withRequestAbortSignal(request, response, (signal) => (
+        listProviderModels({
+          baseUrl: existing.baseUrl,
+          apiKey: existing.apiKey,
+          signal
+        })
+      ));
       sendJson(response, 200, result);
       return true;
     }
@@ -173,6 +198,22 @@ function createModelConfigRoutes({
 
     return false;
   };
+}
+
+async function withRequestAbortSignal(request, response, operation) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  const abortOnUnfinishedClose = () => {
+    if (!response?.writableEnded) abort();
+  };
+  request?.once?.("aborted", abort);
+  response?.once?.("close", abortOnUnfinishedClose);
+  try {
+    return await operation(controller.signal);
+  } finally {
+    request?.off?.("aborted", abort);
+    response?.off?.("close", abortOnUnfinishedClose);
+  }
 }
 
 function summarizeState(state, summarizeModelConfig) {

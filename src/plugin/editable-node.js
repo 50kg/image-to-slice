@@ -98,8 +98,9 @@ async function createEditableText({ figmaApi, definition }) {
   text.fontSize = clampNumber(Number(definition.fontSize), 8, 160, 16);
   text.lineHeight = { unit: "PIXELS", value: clampNumber(Number(definition.lineHeight), text.fontSize, 240, Math.round(text.fontSize * 1.25)) };
   text.fills = [hexToSolidPaint(definition.color || "#111318", definition.opacity)];
-  if (definition.letterSpacing) {
-    text.letterSpacing = { unit: "PIXELS", value: Number(definition.letterSpacing) };
+  const letterSpacing = Number.parseFloat(definition.letterSpacing);
+  if (Number.isFinite(letterSpacing)) {
+    text.letterSpacing = { unit: "PIXELS", value: letterSpacing };
   }
   try {
     text.textAutoResize = "NONE";

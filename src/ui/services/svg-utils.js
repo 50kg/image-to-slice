@@ -5,9 +5,7 @@ function normalizeVectorSvg(svg, width, height) {
   }
   const openTag = openTagMatch[0];
   const normalizedOpenTag = openTag
-    .replace(/\swidth="[^"]*"/, "")
-    .replace(/\sheight="[^"]*"/, "")
-    .replace(/\sviewBox="[^"]*"/, "")
+    .replace(/\s(?:width|height|viewbox)\s*=\s*(?:"[^"]*"|'[^']*')/gi, "")
     .replace("<svg", `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"`);
   return svg.replace(openTag, normalizedOpenTag);
 }

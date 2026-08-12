@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { EventEmitter } = require("node:events");
 
 const {
   createModelConfigRoutes
@@ -28,7 +29,8 @@ function createHarness({
   payload = {},
   modelConfigs = [fixtureConfig()],
   taskRouting = { vision: null, generation: null, inpaint: null },
-  testModelConfig
+  testModelConfig,
+  listProviderModelsImpl
 } = {}) {
   let state = {
     version: 2,
@@ -41,14 +43,25 @@ function createHarness({
   const ended = [];
   const modelListCalls = [];
   let nextId = 0;
+  let mutationQueue = Promise.resolve();
   const handle = createModelConfigRoutes({
     headers: { "content-type": "application/json" },
-    readJson: async () => payload,
+    readJson: async (request) => typeof payload === "function" ? payload(request) : payload,
     sendJson: (response, status, body) => sent.push({ response, status, body }),
     getState: () => state,
     commitState: (nextState) => {
       saved += 1;
       state = nextState;
+    },
+    mutateState: (mutator) => {
+      const result = mutationQueue.then(() => {
+        const nextState = mutator(state);
+        saved += 1;
+        state = nextState;
+        return nextState;
+      });
+      mutationQueue = result.catch(() => {});
+      return result;
     },
     createId: () => `new-${++nextId}`,
     validateModelConfigInput,
@@ -56,6 +69,7 @@ function createHarness({
     resolveTaskConfig,
     listProviderModels: async (options) => {
       modelListCalls.push(options);
+      if (listProviderModelsImpl) return listProviderModelsImpl(options);
       return { ok: true, models: ["model-a"], modelCount: 1 };
     },
     testModelConfig
@@ -126,6 +140,46 @@ test("POST /api/model-configs creates an untested config with a generated ID", a
   assert.equal(harness.state.modelConfigs[1].timeoutMs, 420000);
   assert.deepEqual(harness.state.modelConfigs[1].testResults, {});
   assert.equal(harness.sent[0].status, 201);
+});
+
+test("concurrent model config mutations derive from the latest committed state", async () => {
+  const harness = createHarness({
+    payload: (request) => request.payload
+  });
+
+  await Promise.all([
+    harness.handle({
+      method: "POST",
+      url: "/api/model-configs",
+      payload: {
+        name: "生成 B",
+        baseUrl: "https://b.example.com",
+        apiKey: "sk-b",
+        model: "model-b",
+        timeoutSeconds: 300,
+        tasks: ["generation", "inpaint"]
+      }
+    }, {}),
+    harness.handle({
+      method: "POST",
+      url: "/api/model-configs",
+      payload: {
+        name: "理解 C",
+        baseUrl: "https://c.example.com",
+        apiKey: "sk-c",
+        model: "model-c",
+        timeoutSeconds: 300,
+        tasks: ["vision"]
+      }
+    }, {})
+  ]);
+
+  assert.deepEqual(harness.state.modelConfigs.map((config) => config.id), [
+    "vision-a",
+    "new-1",
+    "new-2"
+  ]);
+  assert.equal(harness.saved, 2);
 });
 
 test("PUT /api/model-configs/:id preserves the stored key when omitted", async () => {
@@ -233,11 +287,31 @@ test("POST models uses the selected config instead of task routing", async () =>
     await harness.handle({ method: "POST", url: "/api/model-configs/vision-a/models", signal: null }, {}),
     true
   );
-  assert.deepEqual(harness.modelListCalls[0], {
-    baseUrl: "https://api.example.com",
-    apiKey: "sk-test",
-    signal: null
+  assert.equal(harness.modelListCalls[0].baseUrl, "https://api.example.com");
+  assert.equal(harness.modelListCalls[0].apiKey, "sk-test");
+  assert.ok(harness.modelListCalls[0].signal instanceof AbortSignal);
+});
+
+test("model list requests abort when the client response closes unfinished", async () => {
+  let observedSignal = null;
+  const harness = createHarness({
+    listProviderModelsImpl: ({ signal }) => new Promise((resolve, reject) => {
+      observedSignal = signal;
+      signal.addEventListener("abort", () => reject(new Error("provider request aborted")), { once: true });
+    })
   });
+  const request = new EventEmitter();
+  request.method = "POST";
+  request.url = "/api/model-configs/vision-a/models";
+  const response = new EventEmitter();
+  response.writableEnded = false;
+
+  const pending = harness.handle(request, response);
+  await Promise.resolve();
+  response.emit("close");
+
+  await assert.rejects(pending, /provider request aborted/);
+  assert.equal(observedSignal.aborted, true);
 });
 
 test("POST preview models uses unsaved form values without creating a config", async () => {
@@ -257,11 +331,9 @@ test("POST preview models uses unsaved form values without creating a config", a
     true
   );
   assert.equal(harness.saved, 0);
-  assert.deepEqual(harness.modelListCalls[0], {
-    baseUrl: "https://draft.example.com",
-    apiKey: "sk-draft",
-    signal: null
-  });
+  assert.equal(harness.modelListCalls[0].baseUrl, "https://draft.example.com");
+  assert.equal(harness.modelListCalls[0].apiKey, "sk-draft");
+  assert.ok(harness.modelListCalls[0].signal instanceof AbortSignal);
 });
 
 test("POST preview test reuses an edited config key without persisting form values", async () => {

@@ -140,3 +140,28 @@ test("buildSliceExportManifest preserves independent corner radii", () => {
 
   assert.deepEqual(result.assets[0].radii, radii);
 });
+
+test("buildSliceExportManifest assigns stable unique filenames to duplicate asset names", () => {
+  const result = buildSliceExportManifest({
+    manifest: { screen: { name: "Screen", width: 100, height: 100 } },
+    activeImage: {
+      sliceManifest: {
+        assets: ["icon", "icon", "icon--2"].map((name, index) => ({
+          id: `asset-${index}`,
+          name,
+          svgData: index === 1 ? "<svg />" : null,
+          placement: { x: 0, y: 0, width: 10, height: 10 }
+        }))
+      }
+    },
+    imageIndex: 0,
+    getSliceRadius: () => 0
+  });
+
+  assert.deepEqual(result.assets.map((asset) => asset.filename), [
+    "assets/icon.png",
+    "assets/icon--2.png",
+    "assets/icon--2--2.png"
+  ]);
+  assert.equal(result.assets[1].svgFilename, "assets/icon--2.svg");
+});

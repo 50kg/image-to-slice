@@ -2722,22 +2722,37 @@
           <button class="slice-settings-delete" type="button" data-delete-selected-slices${isAnyProcessing ? " disabled" : ""}>${isMultiSelection ? `删除选中的 ${selectedAssets.length} 个切图` : "删除切图"}</button>
         `;
         const nameInput = sliceSettingsBody.querySelector("[data-slice-name]");
-        let nameHistoryRecorded = false;
         const updateName = () => {
-          const nextName = nameInput.value.trim();
-          if (!nextName || selectedAssets.every((entry) => entry.name === nextName)) return;
-          if (!nameHistoryRecorded) {
-            recordSliceHistory();
-            nameHistoryRecorded = true;
+          const normalizedName = normalizeSliceAssetName(nameInput.value);
+          if (!normalizedName) {
+            nameInput.value = isMultiSelection ? "" : asset.name;
+            setStatus("切图名称只能使用英文、数字和下划线，且必须包含英文字母。", "warning");
+            return;
           }
-          selectedAssets.forEach((entry) => {
-            entry.name = nextName;
+          const selectedIds = new Set(selectedAssets.map((entry) => entry.id));
+          const usedNames = new Set(
+            (getActiveResultImage()?.sliceManifest?.assets || [])
+              .filter((entry) => !selectedIds.has(entry.id))
+              .map((entry) => entry.name)
+          );
+          const nextNames = selectedAssets.map(() => reserveSliceAssetName(normalizedName, usedNames));
+          if (selectedAssets.every((entry, index) => entry.name === nextNames[index])) {
+            nameInput.value = isMultiSelection ? "" : nextNames[0];
+            return;
+          }
+          recordSliceHistory();
+          selectedAssets.forEach((entry, index) => {
+            entry.name = nextNames[index];
           });
           scheduleWorkspaceDraftSave();
-          if (!isMultiSelection) sliceSettingsTitle.textContent = nextName;
+          if (!isMultiSelection) {
+            nameInput.value = nextNames[0];
+            sliceSettingsTitle.textContent = nextNames[0];
+          } else {
+            nameInput.value = "";
+          }
           renderCutModules(currentManifest);
         };
-        nameInput.addEventListener("input", updateName);
         nameInput.addEventListener("change", updateName);
         nameInput.addEventListener("keydown", (event) => {
           if (event.key === "Enter") {
@@ -2837,6 +2852,7 @@
         if (!Array.isArray(image.sliceManifest.assets)) {
           image.sliceManifest.assets = [];
         }
+        normalizeSliceAssetNames(image.sliceManifest.assets);
       }
 
       function cloneSliceAssets(assets) {
@@ -2894,13 +2910,10 @@
           x: clampNumber(placement.x + 10, 0, screen.width - placement.width, placement.x),
           y: clampNumber(placement.y + 10, 0, screen.height - placement.height, placement.y)
         };
-        const baseName = `${source.name || "slice"}_副本`;
-        let name = baseName;
-        let suffix = 2;
-        while (assets.some((asset) => asset.name === name)) {
-          name = `${baseName}_${suffix}`;
-          suffix += 1;
-        }
+        const name = reserveSliceAssetName(
+          `${source.name || "slice"}_copy`,
+          new Set(assets.map((asset) => asset.name))
+        );
         const duplicate = {
           ...source,
           id: `slice_${activeResultIndex + 1}_${Date.now().toString(36)}_${assets.length + 1}`,
@@ -4326,10 +4339,14 @@
                 historyRecorded = true;
               }
               const assetId = `background_decomposition_${Date.now().toString(36)}_${index}`;
+              const backgroundName = reserveSliceAssetName(
+                job.name,
+                new Set(activeImage.sliceManifest.assets.map((asset) => asset.name))
+              );
               const pair = createAiInpaintResultPair({
                 compositeAsset: {
                 id: assetId,
-                name: `${job.name || "背景"}_完整背景`,
+                name: backgroundName,
                 kind: "complex-decoration",
                 type: "manual_slice",
                 source: "ai-background-decomposition",
@@ -4359,6 +4376,7 @@
                 pair.composite,
                 pair.rawFull
               );
+              normalizeSliceAssetNames(activeImage.sliceManifest.assets);
               selectedSliceIds.add(pair.composite.id);
               activeSliceId = pair.composite.id;
               completedCount += 1;
@@ -4568,14 +4586,12 @@
         const assets = activeImage?.sliceManifest?.assets || [];
         const existing = assets.find((asset) => asset.aiCompleteSourceAssetId === sourceAsset.id);
         if (existing) return existing;
-        const sourceName = String(sourceAsset.name || "slice").replace(/_(?:AI原图|AI完整图)$/, "");
-        const baseName = `${sourceName}_原始图副本`;
-        let name = baseName;
-        let suffix = 2;
-        while (assets.some((asset) => asset.name === name)) {
-          name = `${baseName}_${suffix}`;
-          suffix += 1;
-        }
+        const sourceName = String(sourceAsset.name || "slice")
+          .replace(/_(?:ai_original|local_composite|AI原图|AI完整图|局部合成)$/, "");
+        const name = reserveSliceAssetName(
+          `${sourceName}_original_copy`,
+          new Set(assets.map((asset) => asset.name))
+        );
         const copy = createAiCompleteEditableCopy({
           sourceAsset,
           id: `${sourceAsset.id}_editable_${Date.now().toString(36)}`,
@@ -4629,6 +4645,7 @@
           0,
           pair.rawFull
         );
+        normalizeSliceAssetNames(assets);
         return {
           composite: sourceAsset,
           rawFull: pair.rawFull
@@ -4646,6 +4663,7 @@
         }
         const startIndex = activeImage.sliceManifest?.assets?.length || 0;
         ensureImageSliceState(activeImage);
+        const usedNames = new Set(activeImage.sliceManifest.assets.map((asset) => asset.name));
         const preparedAssets = [];
         recordSliceHistory({
           actionType: "ai-bbox-batch",
@@ -4657,7 +4675,10 @@
           const name = detected?.name ? `：${detected.name}` : "";
           backgroundDecompositionLoadingDescription.textContent = `正在添加普通切图 ${offset + 1} / ${assets.length}${name}`;
           await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-          const prepared = await prepareDetectedSliceAsset(activeImage, detected, index, batchId, signal);
+          const prepared = await prepareDetectedSliceAsset(activeImage, {
+            ...detected,
+            name: reserveSliceAssetName(detected?.name, usedNames)
+          }, index, batchId, signal);
           preparedAssets.push(prepared);
           activeImage.sliceManifest.assets.push(prepared);
           activeSliceId = prepared.id;
@@ -4686,7 +4707,10 @@
           : activeImage.dataUrl;
         const index = activeImage.sliceManifest.assets.length + 1;
         const id = `slice_${activeResultIndex + 1}_${Date.now().toString(36)}_${index}`;
-        const name = `slice_${String(index).padStart(2, "0")}`;
+        const name = reserveSliceAssetName(
+          "",
+          new Set(activeImage.sliceManifest.assets.map((asset) => asset.name))
+        );
         const normalizedPlacement = normalizeSlicePlacement(placement, currentManifest?.screen);
         const dataUrl = await cropImageRegion(sourceDataUrl, normalizedPlacement);
         const repair = await createSliceRepairPatch(sourceDataUrl, normalizedPlacement);
@@ -4781,21 +4805,25 @@
           || (asset.aiRedrawn && asset.svgData ? "redrawSvg" : "")
           || (asset.aiTransparent && asset.aiTransparentDataUrl ? "transparent" : "");
         if (operation === "transparent" && asset.aiTransparentDataUrl) {
-          suffix = "AI透明";
+          suffix = "ai_transparent";
           processedDataUrl = asset.aiTransparentDataUrl;
           processedPlacement = asset.aiTransparentPlacement;
         } else if (operation === "redrawSvg" && asset.svgData) {
-          suffix = "AI重绘SVG";
+          suffix = "ai_redraw_svg";
           processedPlacement = asset.aiRedrawnPlacement;
         }
         if (!suffix) return;
         const placement = normalizeSlicePlacement(processedPlacement || asset.placement, currentManifest?.screen);
         const repeatedSuffix = new RegExp(`(?:_${suffix})+$`);
         const baseName = String(asset.name || "slice").replace(repeatedSuffix, "");
+        const processedName = reserveSliceAssetName(
+          `${baseName}_${suffix}`,
+          new Set(activeImage.sliceManifest.assets.map((entry) => entry.name))
+        );
         const processedAsset = {
           ...asset,
           id: `${asset.id}_processed_${Date.now().toString(36)}`,
-          name: `${baseName}_${suffix}`,
+          name: processedName,
           placement: { ...placement },
           selected: false,
           aiCompleteSourceAssetId: null,
@@ -6695,14 +6723,7 @@
             if (!nodes.length) continue;
             const sourceAsset = currentAssets.get(id);
             const extension = sourceAsset?.svgData ? "svg" : "png";
-            const initialName = sanitizeFilename(referenceAsset.name || id || "slice");
-            let basename = initialName;
-            let suffix = 2;
-            while (usedNames.has(`${basename}.${extension}`)) {
-              basename = `${initialName}_${suffix}`;
-              suffix += 1;
-            }
-            usedNames.add(`${basename}.${extension}`);
+            const basename = reserveSliceAssetName(sourceAsset?.name || referenceAsset.name, usedNames);
             const filename = `assets/${basename}.${extension}`;
             nodes.forEach((node) => {
               exportedAssetIndex += 1;
@@ -6983,6 +7004,15 @@
               : definition);
             if (text && box) {
               const fontSize = Number.parseFloat(style.fontSize || "16");
+              const lineHeight = parseCssLineHeight(style, fontSize);
+              const textBox = sizeCapturedTextBox({
+                width: node.rect.width,
+                height: node.rect.height,
+                fontSize,
+                lineHeight,
+                scaleX,
+                scaleY
+              });
               const arrowIconName = inferArrowIconFromText(text);
               if (arrowIconName) {
                 const iconSize = Math.max(
@@ -7008,11 +7038,11 @@
                   text: text.length > 160 ? `${text.slice(0, 157)}...` : text,
                   x: box.x,
                   y: box.y,
-                  width: box.width,
-                  height: box.height,
+                  width: textBox.width,
+                  height: textBox.height,
                   fontSize: Math.max(8, Math.round(fontSize * scaleY)),
                   fontWeight: normalizeCssFontWeight(style.fontWeight || "400"),
-                  lineHeight: Math.max(10, Math.round(parseCssLineHeight(style, fontSize) * scaleY)),
+                  lineHeight: Math.max(10, Math.round(lineHeight * scaleY)),
                   color: extractSolidCssColor(style.color) || "#111318",
                   opacity: clampNumber(Number(style.opacity), 0.05, 1, 1)
                 });

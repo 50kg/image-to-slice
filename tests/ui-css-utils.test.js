@@ -12,6 +12,7 @@ const {
   parseCssGradient,
   parseCssGradientStop,
   parseCssLineHeight,
+  sizeCapturedTextBox,
   readCssBackground,
   createCssClipPathSvg,
   scaleCssRadius,
@@ -146,6 +147,20 @@ test("parseCssLineHeight and normalizeCssFontWeight preserve legacy CSS parsing"
   assert.equal(normalizeCssFontWeight("normal"), 400);
   assert.equal(normalizeCssFontWeight("950"), 900);
   assert.equal(normalizeCssFontWeight("oops"), 400);
+});
+
+test("sizeCapturedTextBox rounds fractional glyph width without extra padding", () => {
+  assert.deepEqual(sizeCapturedTextBox({
+    width: 62.40625,
+    height: 37,
+    fontSize: 26,
+    lineHeight: 38,
+    scaleX: 1,
+    scaleY: 1
+  }), {
+    width: 63,
+    height: 38
+  });
 });
 
 test("readCssBackground joins available background fields", () => {

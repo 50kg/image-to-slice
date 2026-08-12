@@ -152,6 +152,17 @@ function sanitizeFilename(value) {
     .slice(0, 80) || "asset";
 }
 
+function sanitizeHtmlAssetStem(value, fallback = "asset") {
+  return String(value || "")
+    .replace(/\.(?:png|jpe?g|webp|gif|svg|avif)$/i, "")
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64)
+    .replace(/_+$/g, "") || fallback;
+}
+
 function isPointInsideRect(x, y, rect) {
   const tolerance = 2;
   return x >= rect.left - tolerance && x <= rect.right + tolerance &&
@@ -174,6 +185,7 @@ if (typeof module !== "undefined") {
     readErrorMessage,
     readNetworkErrorMessage,
     sanitizeFilename,
+    sanitizeHtmlAssetStem,
     scalePlacement
   };
 }

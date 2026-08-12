@@ -1,3 +1,7 @@
+const figmaFrameSanitizeHtmlAssetStem = typeof require === "function"
+  ? require("./app-utils").sanitizeHtmlAssetStem
+  : sanitizeHtmlAssetStem;
+
 function renderFigmaFrameHtml({ manifest, assets = [] }) {
   const warnings = [];
   const screen = manifest?.screen || {};
@@ -331,16 +335,21 @@ function indexAssets(assets) {
 
 function normalizeAssetFilenames(assets) {
   const used = new Set();
+  let fallbackIndex = 0;
   return Array.from(assets || []).map((asset) => {
     const filename = safeAssetFilename(asset?.filename);
     if (!filename) return asset;
     const extensionIndex = filename.lastIndexOf(".");
-    const stem = extensionIndex > 0 ? filename.slice(0, extensionIndex) : filename;
-    const extension = extensionIndex > 0 ? filename.slice(extensionIndex) : "";
-    let candidate = filename;
+    const sanitizedStem = figmaFrameSanitizeHtmlAssetStem(
+      extensionIndex > 0 ? filename.slice(0, extensionIndex) : filename,
+      ""
+    );
+    const stem = sanitizedStem || `asset_${String(++fallbackIndex).padStart(2, "0")}`;
+    const extension = extensionIndex > 0 ? filename.slice(extensionIndex).toLowerCase() : "";
+    let candidate = `${stem}${extension}`;
     let counter = 2;
     while (used.has(candidate)) {
-      candidate = `${stem}--${counter}${extension}`;
+      candidate = `${stem}_${counter}${extension}`;
       counter += 1;
     }
     used.add(candidate);

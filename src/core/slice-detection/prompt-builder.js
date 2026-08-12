@@ -8,8 +8,9 @@ function buildSliceAssetDetectionPrompt({ width, height, sourceImageName }) {
     "A logo, badge, or illustration containing inseparable artistic text may be returned as one complete PNG crop.",
     "Do not return ordinary UI text, button backgrounds, cards, dividers, simple rectangles, circles, or layout containers.",
     "Do not merge visually independent assets merely because their boxes overlap. Preserve source reading order.",
+    "Every asset name must be a concise, specific English snake_case identifier describing its content or purpose, for example woodcarving_course_cover or gradient_flag_icon. Never use Chinese, spaces, hyphens, generic candidate labels, or file extensions. Use slice_01 only when the content truly cannot be identified.",
     "Return one JSON object with this shape:",
-    '{"assets":[{"name":"asset name","kind":"icon","bbox":{"x":0,"y":0,"width":8,"height":8},"confidence":0.0,"containsEmbeddedText":false,"reason":"why raster is required"}]}',
+    '{"assets":[{"name":"specific_english_asset_name","kind":"icon","bbox":{"x":0,"y":0,"width":8,"height":8},"confidence":0.0,"containsEmbeddedText":false,"reason":"why raster is required"}]}',
     "Return JSON only. Do not include Markdown or explanations outside the JSON object."
   ].join("\n");
 }

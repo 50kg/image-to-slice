@@ -5,11 +5,11 @@ function createAiInpaintResultPair({
   groupId,
   rawFullId
 }) {
-  const baseName = String(compositeAsset?.name || "切图")
-    .replace(/_(?:局部合成|AI原图|AI完整图)$/, "");
+  const baseName = String(compositeAsset?.name || "slice")
+    .replace(/_(?:local_composite|ai_original|局部合成|AI原图|AI完整图)$/, "");
   const composite = {
     ...compositeAsset,
-    name: `${baseName}_局部合成`,
+    name: `${baseName}_local_composite`,
     placement: compositeAsset?.placement ? { ...compositeAsset.placement } : compositeAsset?.placement,
     dataUrl: compositeDataUrl,
     aiCompletedDataUrl: compositeDataUrl,
@@ -42,7 +42,7 @@ function createAiInpaintResultPair({
   };
   const rawFull = createFullAsset({
     id: rawFullId,
-    name: `${baseName}_AI原图`,
+    name: `${baseName}_ai_original`,
     dataUrl: rawFullDataUrl,
     role: "raw-full"
   });

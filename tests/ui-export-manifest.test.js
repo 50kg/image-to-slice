@@ -72,9 +72,9 @@ test("buildSliceExportManifest preserves legacy asset export shape", () => {
     },
     assets: [{
       id: "asset-1",
-      name: " icon: user/avatar? ",
-      filename: "assets/icon__user_avatar_.png",
-      svgFilename: "assets/icon__user_avatar_.svg",
+      name: "icon_user_avatar",
+      filename: "assets/icon_user_avatar.png",
+      svgFilename: "assets/icon_user_avatar.svg",
       format: "png",
       formats: ["png", "svg"],
       transparent: true,
@@ -98,13 +98,13 @@ test("buildSliceExportManifest includes both ordinary AI inpaint results", () =>
         assets: [
           {
             id: "safe",
-            name: "背景_局部合成",
+            name: "hero_background_local_composite",
             aiInpaintResultGroupId: "group-1",
             placement: { x: 0, y: 0, width: 100, height: 100 }
           },
           {
             id: "full",
-            name: "背景_AI完整图",
+            name: "hero_background_ai_original",
             aiInpaintResultGroupId: "group-1",
             placement: { x: 0, y: 0, width: 100, height: 100 }
           }
@@ -146,7 +146,7 @@ test("buildSliceExportManifest assigns stable unique filenames to duplicate asse
     manifest: { screen: { name: "Screen", width: 100, height: 100 } },
     activeImage: {
       sliceManifest: {
-        assets: ["icon", "icon", "icon--2"].map((name, index) => ({
+        assets: ["icon", "icon", "icon-2"].map((name, index) => ({
           id: `asset-${index}`,
           name,
           svgData: index === 1 ? "<svg />" : null,
@@ -160,8 +160,8 @@ test("buildSliceExportManifest assigns stable unique filenames to duplicate asse
 
   assert.deepEqual(result.assets.map((asset) => asset.filename), [
     "assets/icon.png",
-    "assets/icon--2.png",
-    "assets/icon--2--2.png"
+    "assets/icon_2.png",
+    "assets/icon_2_2.png"
   ]);
-  assert.equal(result.assets[1].svgFilename, "assets/icon--2.svg");
+  assert.equal(result.assets[1].svgFilename, "assets/icon_2.svg");
 });

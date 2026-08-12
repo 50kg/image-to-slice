@@ -1,4 +1,6 @@
-const exportManifestSanitizeFilename = typeof require === "function" ? require("./app-utils").sanitizeFilename : sanitizeFilename;
+const exportManifestReserveSliceAssetName = typeof require === "function"
+  ? require("../../core/slice-asset-name").reserveSliceAssetName
+  : reserveSliceAssetName;
 
 function buildSliceExportManifest({
   manifest,
@@ -8,19 +10,13 @@ function buildSliceExportManifest({
   getSliceRadii
 }) {
   const screen = manifest.screen;
-  const usedFilenames = new Set();
-  const assets = activeImage.sliceManifest.assets.map((asset, index) => {
-    const basename = exportManifestSanitizeFilename(asset.name || `slice_${index + 1}`);
-    let filename = `assets/${basename}.png`;
-    let duplicateIndex = 2;
-    while (usedFilenames.has(filename)) {
-      filename = `assets/${basename}--${duplicateIndex}.png`;
-      duplicateIndex += 1;
-    }
-    usedFilenames.add(filename);
+  const usedNames = new Set();
+  const assets = activeImage.sliceManifest.assets.map((asset) => {
+    const basename = exportManifestReserveSliceAssetName(asset.name, usedNames);
+    const filename = `assets/${basename}.png`;
     return {
       id: asset.id,
-      name: asset.name,
+      name: basename,
       filename,
       svgFilename: asset.svgData ? filename.replace(/\.png$/, ".svg") : null,
       format: "png",

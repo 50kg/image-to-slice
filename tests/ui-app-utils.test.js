@@ -16,6 +16,7 @@ const {
   readErrorMessage,
   readNetworkErrorMessage,
   sanitizeFilename,
+  sanitizeHtmlAssetStem,
   scalePlacement
 } = require("../src/ui/services/app-utils");
 
@@ -120,6 +121,14 @@ test("sanitizeFilename normalizes unsafe or empty asset names", () => {
   assert.equal(sanitizeFilename("   "), "asset");
   assert.equal(sanitizeFilename(null), "asset");
   assert.equal(sanitizeFilename("a".repeat(90)), "a".repeat(80));
+});
+
+test("sanitizeHtmlAssetStem creates lowercase underscore-only HTML asset names", () => {
+  assert.equal(sanitizeHtmlAssetStem("AI experience-center icon"), "ai_experience_center_icon");
+  assert.equal(sanitizeHtmlAssetStem("Alibaba Cloud Logo.PNG"), "alibaba_cloud_logo");
+  assert.equal(sanitizeHtmlAssetStem("Qwen3.8-Max release_完整背景_AI原图"), "qwen3_8_max_release_ai");
+  assert.equal(sanitizeHtmlAssetStem("完整背景"), "asset");
+  assert.equal(sanitizeHtmlAssetStem("  Alibaba__Cloud---Logo  "), "alibaba_cloud_logo");
 });
 
 test("isPointInsideRect allows a small boundary tolerance", () => {

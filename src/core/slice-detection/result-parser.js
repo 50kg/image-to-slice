@@ -2,6 +2,7 @@ const {
   ALLOWED_SLICE_ASSET_KINDS,
   MIN_SLICE_ASSET_SIZE
 } = require("./constants");
+const { normalizeSliceAssetName } = require("../slice-asset-name");
 
 function extractJsonObject(text) {
   const raw = String(text || "").trim();
@@ -55,8 +56,8 @@ function parseSliceAssetDetectionText(text, { width, height }) {
     const bbox = normalizeBBox(asset?.bbox, sourceWidth, sourceHeight);
     if (!bbox) return;
     const confidenceValue = Number(asset?.confidence);
-    const defaultName = `${kind}_${String(index + 1).padStart(2, "0")}`;
-    const modelName = String(asset?.name || "").trim().slice(0, 120);
+    const defaultName = `slice_${String(index + 1).padStart(2, "0")}`;
+    const modelName = normalizeSliceAssetName(String(asset?.name || "").trim().slice(0, 120));
     assets.push({
       name: modelName || defaultName,
       kind,

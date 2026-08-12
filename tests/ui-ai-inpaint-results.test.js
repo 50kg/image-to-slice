@@ -10,7 +10,7 @@ const {
 test("AI inpaint produces raw and locally composited slice assets", () => {
   const source = {
     id: "background",
-    name: "完整背景",
+    name: "hero_background",
     dataUrl: "data:image/png;base64,SOURCE",
     originalDataUrl: "data:image/png;base64,ORIGINAL",
     placement: { x: 10, y: 20, width: 300, height: 200 },
@@ -34,7 +34,7 @@ test("AI inpaint produces raw and locally composited slice assets", () => {
   });
 
   assert.equal(pair.composite.id, "background");
-  assert.equal(pair.composite.name, "完整背景_局部合成");
+  assert.equal(pair.composite.name, "hero_background_local_composite");
   assert.equal(pair.composite.dataUrl, "data:image/png;base64,COMPOSITE");
   assert.equal(pair.composite.selected, true);
   assert.equal(pair.composite.aiInpaintResultGroupId, "group-2");
@@ -42,13 +42,13 @@ test("AI inpaint produces raw and locally composited slice assets", () => {
   assert.equal("svgRestoreState" in pair.composite, false);
 
   assert.equal(pair.rawFull.id, "background-raw");
-  assert.equal(pair.rawFull.name, "完整背景_AI原图");
+  assert.equal(pair.rawFull.name, "hero_background_ai_original");
   assert.equal(pair.rawFull.dataUrl, "data:image/png;base64,RAW");
   assert.equal(pair.rawFull.aiInpaintResultRole, "raw-full");
   assert.equal(pair.rawFull.aiProcessing, false);
   assert.equal("aiCompleteSourceAssetId" in pair.rawFull, false);
   assert.equal("svgRestoreState" in pair.rawFull, false);
-  assert.equal(source.name, "完整背景");
+  assert.equal(source.name, "hero_background");
 
   assert.notEqual(pair.composite.placement, source.placement);
   assert.notEqual(pair.rawFull.placement, source.placement);
@@ -74,7 +74,7 @@ test("AI inpaint result roles expose distinct slice-list type labels", () => {
 test("moving an AI complete result creates an ordinary copy from the pre-repair image", () => {
   const source = {
     id: "background-full",
-    name: "完整背景_AI完整图",
+    name: "hero_background_ai_original",
     dataUrl: "data:image/png;base64,FULL",
     originalDataUrl: "data:image/png;base64,ORIGINAL",
     placement: { x: 10, y: 20, width: 300, height: 200 },
@@ -94,11 +94,11 @@ test("moving an AI complete result creates an ordinary copy from the pre-repair 
   const copy = createAiCompleteEditableCopy({
     sourceAsset: source,
     id: "background-full-editable",
-    name: "完整背景_原始图副本"
+    name: "hero_background_original_copy"
   });
 
   assert.equal(copy.id, "background-full-editable");
-  assert.equal(copy.name, "完整背景_原始图副本");
+  assert.equal(copy.name, "hero_background_original_copy");
   assert.equal(copy.dataUrl, "data:image/png;base64,ORIGINAL");
   assert.equal(copy.originalDataUrl, "data:image/png;base64,ORIGINAL");
   assert.equal(copy.aiCompleteSourceAssetId, "background-full");

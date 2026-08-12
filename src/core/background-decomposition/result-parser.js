@@ -5,6 +5,7 @@ const {
   MIN_BACKGROUND_SIZE,
   MIN_OVERLAY_SIZE
 } = require("./constants");
+const { normalizeSliceAssetName } = require("../slice-asset-name");
 
 function extractJsonObject(text) {
   const raw = String(text || "").trim();
@@ -80,7 +81,7 @@ function parseBackgroundDecompositionText(text, { width, height }) {
         });
       backgrounds.push({
         id: String(background?.id || "").trim().slice(0, 120) || `background_${String(backgroundIndex + 1).padStart(2, "0")}`,
-        name: String(background?.name || "").trim().slice(0, 120) || `完整背景 ${backgroundIndex + 1}`,
+        name: normalizeSliceAssetName(background?.name) || `slice_${String(backgroundIndex + 1).padStart(2, "0")}`,
         bbox,
         confidence: normalizeConfidence(background?.confidence),
         reason: String(background?.reason || "").trim().slice(0, 300),
@@ -97,4 +98,3 @@ function parseBackgroundDecompositionText(text, { width, height }) {
 module.exports = {
   parseBackgroundDecompositionText
 };
-

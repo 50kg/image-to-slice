@@ -33,7 +33,7 @@ test("parseSliceAssetDetectionText parses and clamps valid model assets", () => 
   const result = parseSliceAssetDetectionText(JSON.stringify({
     assets: [
       {
-        name: "Logo",
+        name: "logo",
         kind: "logo",
         bbox: { x: -4, y: 10.2, width: 32.8, height: 24.1 },
         confidence: 1.5,
@@ -46,7 +46,7 @@ test("parseSliceAssetDetectionText parses and clamps valid model assets", () => 
   assert.deepEqual(result, {
     assets: [
       {
-        name: "Logo",
+        name: "logo",
         kind: "logo",
         bbox: { x: 0, y: 10, width: 29, height: 24 },
         confidence: 1,
@@ -55,6 +55,20 @@ test("parseSliceAssetDetectionText parses and clamps valid model assets", () => 
       }
     ]
   });
+});
+
+test("parseSliceAssetDetectionText normalizes AI names and falls back without Chinese guesses", () => {
+  const result = parseSliceAssetDetectionText(JSON.stringify({
+    assets: [
+      { name: "Woodcarving Course Cover", kind: "photo", bbox: { x: 0, y: 0, width: 20, height: 20 } },
+      { name: "木雕课程封面", kind: "photo", bbox: { x: 30, y: 0, width: 20, height: 20 } }
+    ]
+  }), { width: 100, height: 100 });
+
+  assert.deepEqual(result.assets.map((asset) => asset.name), [
+    "woodcarving_course_cover",
+    "slice_02"
+  ]);
 });
 
 test("parseSliceAssetDetectionText filters unsupported kinds and tiny boxes", () => {
@@ -82,7 +96,7 @@ test("parseSliceAssetDetectionText filters unsupported kinds and tiny boxes", ()
   }), { width: 100, height: 80 });
 
   assert.equal(result.assets.length, 1);
-  assert.equal(result.assets[0].name, "icon_03");
+  assert.equal(result.assets[0].name, "slice_03");
   assert.equal(result.assets[0].kind, "icon");
 });
 

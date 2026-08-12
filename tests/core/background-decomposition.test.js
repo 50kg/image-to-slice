@@ -26,6 +26,7 @@ test("background decomposition prompt preserves integrated artistic content", ()
   assert.match(prompt, /raster-overlay/);
   assert.match(prompt, /"assets"/);
   assert.match(prompt, /"backgrounds"/);
+  assert.match(prompt, /lowercase snake_case/);
   assert.match(prompt, /icon, avatar, illustration, photo, product-image, complex-decoration, complex-chart, logo/);
   assert.match(prompt, /Return JSON only/);
 });
@@ -63,7 +64,7 @@ test("unified decomposition parser returns ordinary assets and covered backgroun
   }), { width: 100, height: 80 });
 
   assert.equal(result.assets.length, 1);
-  assert.equal(result.assets[0].name, "活动 Logo");
+  assert.equal(result.assets[0].name, "logo");
   assert.equal(result.backgrounds.length, 1);
   assert.equal(result.backgrounds[0].id, "hero");
 });
@@ -72,7 +73,7 @@ test("background decomposition parser clamps candidates and overlays", () => {
   const result = parseBackgroundDecompositionText(JSON.stringify({
     backgrounds: [{
       id: "hero",
-      name: "完整背景",
+      name: "old_street_hero_background",
       bbox: { x: -10, y: 5.4, width: 130, height: 110 },
       confidence: 1.4,
       reason: "continuous artwork",
@@ -91,7 +92,7 @@ test("background decomposition parser clamps candidates and overlays", () => {
   assert.deepEqual(result, {
     backgrounds: [{
       id: "hero",
-      name: "完整背景",
+      name: "old_street_hero_background",
       bbox: { x: 0, y: 5, width: 100, height: 75 },
       confidence: 1,
       reason: "continuous artwork",

@@ -241,6 +241,16 @@ function parseCssLineHeight(style, fontSize) {
   return Number.isFinite(numeric) ? numeric * fontSize : fontSize * 1.25;
 }
 
+function sizeCapturedTextBox({ width, height, fontSize, lineHeight, scaleX, scaleY }) {
+  return {
+    width: Math.ceil(Number(width) * Number(scaleX)),
+    height: Math.ceil(Math.max(
+      Number(height) * Number(scaleY),
+      Number(lineHeight) * Number(scaleY)
+    ))
+  };
+}
+
 function normalizeCssFontWeight(value) {
   if (value === "bold") {
     return 700;
@@ -406,6 +416,7 @@ if (typeof module !== "undefined") {
     parseCssGradient,
     parseCssGradientStop,
     parseCssLineHeight,
+    sizeCapturedTextBox,
     readCssBackground,
     scaleCssRadius,
     scaleWebToFigmaRadii,

@@ -80,7 +80,7 @@ test("renderFigmaFrameHtml emits a fixed-size escaped screen with local assets",
   assert.match(css, /width:320px/);
   assert.match(css, /height:640px/);
   assert.match(css, /\.figma-screen\{[^}]*background-color:rgba\(242,245,250,1\)/);
-  assert.match(css, /url\("\.\/assets\/hero-banner\.png"\)/);
+  assert.match(css, /url\("\.\/assets\/hero_banner\.png"\)/);
   assert.match(css, /box-shadow:/);
   assert.deepEqual(warnings, []);
 });
@@ -110,13 +110,42 @@ test("createFigmaFrameHtmlExport emits only local HTML, CSS, and asset files", (
   assert.deepEqual(result.files.map((file) => file.name), [
     "index.html",
     "styles.css",
-    "assets/hero-banner.png",
-    "assets/brand-icon.svg"
+    "assets/hero_banner.png",
+    "assets/brand_icon.svg"
   ]);
   const indexHtml = new TextDecoder().decode(result.files[0].data);
   assert.match(indexHtml, /href="\.\/styles\.css"/);
   assert.match(indexHtml, /\.\/assets\//);
   assert.doesNotMatch(indexHtml, /data:|blob:/);
+});
+
+test("createFigmaFrameHtmlExport normalizes asset filenames and references to lowercase underscores", () => {
+  const result = createFigmaFrameHtmlExport({
+    manifest: {
+      screen: { name: "Assets", width: 100, height: 100 },
+      nodes: [
+        { id: "1:1", type: "rectangle", width: 10, height: 10, fills: [{ type: "IMAGE", imageHash: "a" }] },
+        { id: "1:2", type: "rectangle", width: 10, height: 10, fills: [{ type: "IMAGE", imageHash: "b" }] },
+        { id: "1:3", type: "rectangle", width: 10, height: 10, fills: [{ type: "IMAGE", imageHash: "c" }] }
+      ]
+    },
+    assets: [
+      { kind: "image-fill", imageHash: "a", filename: "Alibaba-Cloud Logo.PNG", bytes: new Uint8Array([1]) },
+      { kind: "image-fill", imageHash: "b", filename: "完整背景.png", bytes: new Uint8Array([2]) },
+      { kind: "image-fill", imageHash: "c", filename: "完整背景.PNG", bytes: new Uint8Array([3]) }
+    ],
+    textToBytes: (value) => new TextEncoder().encode(value)
+  });
+
+  assert.deepEqual(result.files.slice(2).map((file) => file.name), [
+    "assets/alibaba_cloud_logo.png",
+    "assets/asset_01.png",
+    "assets/asset_02.png"
+  ]);
+  const css = new TextDecoder().decode(result.files[1].data);
+  assert.match(css, /assets\/alibaba_cloud_logo\.png/);
+  assert.match(css, /assets\/asset_01\.png/);
+  assert.match(css, /assets\/asset_02\.png/);
 });
 
 test("inlining the frame exporter preserves the existing global escapeHtml", () => {
@@ -158,7 +187,7 @@ test("renderFigmaFrameHtml uses a node-render SVG instead of duplicate mixed-sty
     }]
   });
 
-  assert.match(html, /src="\.\/assets\/mixed-text\.svg"/);
+  assert.match(html, /src="\.\/assets\/mixed_text\.svg"/);
   assert.doesNotMatch(html, /Mixed &lt;text&gt;/);
 });
 
@@ -1006,15 +1035,15 @@ test("createFigmaFrameHtmlExport renames duplicate assets and synchronizes every
     "index.html",
     "styles.css",
     "assets/shared.png",
-    "assets/shared--2.png",
-    "assets/shared--3.png"
+    "assets/shared_2.png",
+    "assets/shared_3.png"
   ]);
   assert.deepEqual(
     result.files.slice(2).map((file) => Array.from(file.data)),
     [[1], [2], [3]]
   );
   assert.match(stylesCss, /\.node-17-1\{[^}]*url\("\.\/assets\/shared\.png"\)/);
-  assert.match(stylesCss, /\.node-17-2\{[^}]*url\("\.\/assets\/shared--2\.png"\)/);
-  assert.match(indexHtml, /src="\.\/assets\/shared--3\.png"/);
+  assert.match(stylesCss, /\.node-17-2\{[^}]*url\("\.\/assets\/shared_2\.png"\)/);
+  assert.match(indexHtml, /src="\.\/assets\/shared_3\.png"/);
   assert.deepEqual(result.warnings, []);
 });

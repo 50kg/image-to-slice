@@ -12,6 +12,7 @@ const {
   parseCssGradient,
   parseCssGradientStop,
   parseCssLineHeight,
+  positionCapturedTextBox,
   sizeCapturedTextBox,
   readCssBackground,
   createCssClipPathSvg,
@@ -160,6 +161,42 @@ test("sizeCapturedTextBox rounds fractional glyph width without extra padding", 
   }), {
     width: 63,
     height: 38
+  });
+});
+
+test("positionCapturedTextBox expands a single glyph box upward to its CSS line box", () => {
+  assert.deepEqual(positionCapturedTextBox({
+    x: 949,
+    y: 157,
+    width: 54,
+    height: 30,
+    lineHeight: 60,
+    lineCount: 1,
+    rootX: 0,
+    rootY: 0,
+    scaleX: 1,
+    scaleY: 1
+  }), {
+    x: 949,
+    y: 142
+  });
+});
+
+test("positionCapturedTextBox does not recenter multiline text", () => {
+  assert.deepEqual(positionCapturedTextBox({
+    x: 10,
+    y: 20,
+    width: 100,
+    height: 48,
+    lineHeight: 30,
+    lineCount: 2,
+    rootX: 0,
+    rootY: 0,
+    scaleX: 1,
+    scaleY: 1
+  }), {
+    x: 10,
+    y: 20
   });
 });
 

@@ -251,6 +251,16 @@ function sizeCapturedTextBox({ width, height, fontSize, lineHeight, scaleX, scal
   };
 }
 
+function positionCapturedTextBox({ x, y, height, lineHeight, lineCount, rootX, rootY, scaleX, scaleY }) {
+  const lineBoxOffset = Number(lineCount) === 1
+    ? Math.max(0, (Number(lineHeight) - Number(height)) / 2)
+    : 0;
+  return {
+    x: Math.round((Number(x) - Number(rootX)) * Number(scaleX)),
+    y: Math.round((Number(y) - Number(rootY) - lineBoxOffset) * Number(scaleY))
+  };
+}
+
 function normalizeCssFontWeight(value) {
   if (value === "bold") {
     return 700;
@@ -416,6 +426,7 @@ if (typeof module !== "undefined") {
     parseCssGradient,
     parseCssGradientStop,
     parseCssLineHeight,
+    positionCapturedTextBox,
     sizeCapturedTextBox,
     readCssBackground,
     scaleCssRadius,

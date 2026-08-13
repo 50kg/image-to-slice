@@ -7013,6 +7013,17 @@
                 scaleX,
                 scaleY
               });
+              const textPosition = positionCapturedTextBox({
+                x: node.rect.x,
+                y: node.rect.y,
+                height: node.rect.height,
+                lineHeight,
+                lineCount: node.lineCount,
+                rootX: rootRect.x,
+                rootY: rootRect.y,
+                scaleX,
+                scaleY
+              });
               const arrowIconName = inferArrowIconFromText(text);
               if (arrowIconName) {
                 const iconSize = Math.max(
@@ -7036,8 +7047,8 @@
                   type: "text",
                   name: safeLayerName(parent?.owningReactComponent || parent?.tag || "web_text"),
                   text: text.length > 160 ? `${text.slice(0, 157)}...` : text,
-                  x: box.x,
-                  y: box.y,
+                  x: textPosition.x,
+                  y: textPosition.y,
                   width: textBox.width,
                   height: textBox.height,
                   fontSize: Math.max(8, Math.round(fontSize * scaleY)),
@@ -7071,6 +7082,23 @@
           const box = toBox(node.rect);
           if (!isRoot && box) {
             const tag = String(node.tag || "").toLowerCase();
+            const cssChevronIconName = inferCssChevronIcon(node);
+            if (cssChevronIconName) {
+              const iconSize = Math.max(8, Math.round(Math.max(box.width, box.height)));
+              pushCapturedNode({
+                type: "icon",
+                name: safeLayerName(`web_${cssChevronIconName}`),
+                iconName: cssChevronIconName,
+                x: box.x,
+                y: box.y,
+                width: iconSize,
+                height: iconSize,
+                color: extractSolidCssColor(style.borderTopColor) || "#111318",
+                opacity: clampNumber(Number(style.opacity), 0.05, 1, 1),
+                strokeWidth: Math.max(1.5, Math.min(3.5, Number.parseFloat(style.borderTopWidth || "2") * scaleX))
+              });
+              return;
+            }
             const imageUrl = getWebToFigmaElementImageUrl(node, assets);
             const referenceAssetId = getWebToFigmaReferenceAssetId(node, imageUrl);
             if (referenceAssetId) {

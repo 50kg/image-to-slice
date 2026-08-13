@@ -5,6 +5,7 @@ const {
   decodeSvgDataUrl,
   dedupeReferenceAssetNodes,
   extractCssUrl,
+  inferCssChevronIcon,
   inferArrowIconFromText,
   isFigmaImageDataUrl,
   isSvgDataUrl,
@@ -25,6 +26,42 @@ test("inferArrowIconFromText recognizes compact arrow glyphs", () => {
   assert.equal(inferArrowIconFromText("↓"), "chevrondown");
   assert.equal(inferArrowIconFromText("⌃"), "chevronup");
   assert.equal(inferArrowIconFromText("next"), "");
+});
+
+test("inferCssChevronIcon recognizes an empty two-border CSS chevron", () => {
+  assert.equal(inferCssChevronIcon({
+    childNodes: [],
+    styles: {
+      backgroundColor: "rgba(0, 0, 0, 0)",
+      borderTopWidth: "2px",
+      borderTopStyle: "solid",
+      borderTopColor: "rgb(119, 119, 119)",
+      borderRightWidth: "2px",
+      borderRightStyle: "solid",
+      borderRightColor: "rgb(119, 119, 119)",
+      borderBottomWidth: "0px",
+      borderLeftWidth: "0px",
+      transform: "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)"
+    }
+  }), "chevronright");
+});
+
+test("inferCssChevronIcon ignores filled rotated shapes", () => {
+  assert.equal(inferCssChevronIcon({
+    childNodes: [],
+    styles: {
+      backgroundColor: "rgb(255, 255, 255)",
+      borderTopWidth: "2px",
+      borderTopStyle: "solid",
+      borderTopColor: "rgb(119, 119, 119)",
+      borderRightWidth: "2px",
+      borderRightStyle: "solid",
+      borderRightColor: "rgb(119, 119, 119)",
+      borderBottomWidth: "0px",
+      borderLeftWidth: "0px",
+      transform: "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)"
+    }
+  }), "");
 });
 
 test("safeLayerName strips unsafe characters and keeps CJK names", () => {

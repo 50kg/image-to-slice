@@ -18,6 +18,43 @@ function inferArrowIconFromText(value) {
   return "";
 }
 
+function inferCssChevronIcon(node) {
+  const style = node?.styles || {};
+  const background = String(style.backgroundColor || "transparent").replace(/\s+/g, "").toLowerCase();
+  if (background !== "transparent" && !/^rgba\([^,]+,[^,]+,[^,]+,0(?:\.0+)?\)$/.test(background)) {
+    return "";
+  }
+  const hasContent = (node?.childNodes || []).some((child) => (
+    child?.nodeType === 1 || String(child?.text || "").trim()
+  ));
+  if (hasContent) {
+    return "";
+  }
+  const borderWidth = (side) => Number.parseFloat(style[`border${side}Width`] || "0");
+  if (
+    borderWidth("Top") <= 0
+    || borderWidth("Right") <= 0
+    || borderWidth("Bottom") > 0
+    || borderWidth("Left") > 0
+  ) {
+    return "";
+  }
+  const transform = String(style.transform || "");
+  const matrix = transform.match(/^matrix\(\s*([^,]+),\s*([^,]+)/i);
+  if (!matrix) {
+    return "";
+  }
+  const angle = Math.atan2(Number(matrix[2]), Number(matrix[1])) * 180 / Math.PI;
+  if (!Number.isFinite(angle)) {
+    return "";
+  }
+  if (Math.abs(angle - 45) <= 2) return "chevronright";
+  if (Math.abs(angle - 135) <= 2) return "chevrondown";
+  if (Math.abs(angle + 135) <= 2) return "chevronleft";
+  if (Math.abs(angle + 45) <= 2) return "chevronup";
+  return "";
+}
+
 function safeLayerName(value) {
   const text = String(value || "layer")
     .replace(/\s+/g, "_")
@@ -306,6 +343,7 @@ if (typeof module !== "undefined") {
     decodeSvgDataUrl,
     dedupeReferenceAssetNodes,
     extractCssUrl,
+    inferCssChevronIcon,
     inferArrowIconFromText,
     isFigmaImageDataUrl,
     isSvgDataUrl,

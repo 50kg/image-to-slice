@@ -1111,6 +1111,10 @@ select {
   display: grid;
 }
 
+.global-loading-dialog {
+  inset: 0;
+}
+
 .connection-test-dialog {
   position: static;
   display: none !important;
@@ -1294,6 +1298,18 @@ select {
   color: #111318;
   font-size: 16px;
   font-weight: 820;
+}
+
+.global-loading-dialog .editable-preview-loading-card {
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 48px));
+}
+
+.global-loading-dialog .editable-preview-loading-card strong {
+  max-width: 100%;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .editable-preview-loading-description {

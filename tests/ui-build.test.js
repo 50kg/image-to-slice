@@ -286,7 +286,7 @@ test("slice processing actions use shared reversible state transitions", () => {
   const appSource = fs.readFileSync("src/ui/app.js", "utf8");
 
   assert.match(appSource, /applySliceTransparencyResult\(asset,\s*\{\s*dataUrl:\s*transparentDataUrl,\s*ai:\s*false\s*\}\)/);
-  assert.match(appSource, /applySliceTransparencyResult\(asset,\s*\{\s*dataUrl:\s*image\.dataUrl,\s*ai:\s*true\s*\}\)/);
+  assert.match(appSource, /applySliceTransparencyResult\(asset,\s*\{\s*dataUrl:\s*transparentDataUrl,\s*ai:\s*true\s*\}\)/);
   assert.match(appSource, /applySliceSvgResult\(asset,\s*\{\s*svgData,\s*ai:\s*false\s*\}\)/);
   assert.match(appSource, /applySliceSvgResult\(asset,\s*\{\s*svgData,\s*ai:\s*true\s*\}\)/);
   assert.match(appSource, /restoreSliceSvgState\(asset\)/);
@@ -806,6 +806,22 @@ test("busy dialogs do not duplicate progress in the global status toast", () => 
 
   assert.doesNotMatch(setBusySource, /setStatus|setActiveAiRequestStatus|showStatus/);
   assert.doesNotMatch(appSource, /window\.alert/);
+});
+
+test("global loading dialog is centered independently and wraps long task names", () => {
+  const template = fs.readFileSync("src/ui/ui.template.html", "utf8");
+  const styles = fs.readFileSync("src/ui/styles.css", "utf8");
+
+  assert.match(template, /id="globalLoadingDialog" class="editable-preview-loading-dialog global-loading-dialog"/);
+  assert.match(styles, /\.global-loading-dialog\s*\{[^}]*inset:\s*0;/s);
+  assert.match(styles, /\.global-loading-dialog \.editable-preview-loading-card strong\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
+});
+
+test("AI transparent applies local edge removal after a provider compatibility fallback", () => {
+  const appSource = fs.readFileSync("src/ui/app.js", "utf8");
+  const transparentSource = appSource.match(/async function makeSliceAiTransparent\([\s\S]*?\n      \}/)?.[0] || "";
+
+  assert.match(transparentSource, /result\.requiresLocalTransparency\s*\?\s*await removeEdgeBackground\(image\.dataUrl\)/);
 });
 
 test("editable preview failures stay raw and only appear in the loading dialog", () => {

@@ -43,6 +43,56 @@ test("loadIndex returns default index when index file is missing", () => {
   });
 });
 
+test("loadIndex discovers a copied draft file and adds it to the index", () => {
+  const historyDir = tempHistoryDir();
+  const draftId = "draft_shared_1";
+  const store = createWorkspaceDraftStore({ historyDir });
+  assert.equal(store.loadIndex().records.length, 0);
+  fs.writeFileSync(
+    path.join(historyDir, `${draftId}.json.gz`),
+    zlib.gzipSync(JSON.stringify(createDraft("Shared screen", 4)))
+  );
+
+  const index = store.loadIndex();
+
+  assert.equal(index.activeDraftId, null);
+  assert.equal(index.records.length, 1);
+  assert.deepEqual(
+    (({ id, title, sliceCount, thumbnail }) => ({ id, title, sliceCount, thumbnail }))(index.records[0]),
+    { id: draftId, title: "Shared screen", sliceCount: 4, thumbnail: "" }
+  );
+  assert.equal(JSON.parse(fs.readFileSync(path.join(historyDir, "index.json"), "utf8")).records.length, 1);
+});
+
+test("draft discovery preserves existing records and active draft", () => {
+  const historyDir = tempHistoryDir();
+  const existing = {
+    id: "draft_existing",
+    createdAt: 1,
+    updatedAt: 2,
+    title: "Existing",
+    sliceCount: 1,
+    thumbnail: "thumb"
+  };
+  fs.writeFileSync(path.join(historyDir, "index.json"), JSON.stringify({
+    version: 1,
+    activeDraftId: existing.id,
+    restorePreference: "restore",
+    records: [existing]
+  }));
+  fs.writeFileSync(
+    path.join(historyDir, "draft_new_shared.json.gz"),
+    zlib.gzipSync(JSON.stringify(createDraft("New shared", 2)))
+  );
+  const store = createWorkspaceDraftStore({ historyDir });
+
+  const index = store.loadIndex();
+
+  assert.equal(index.activeDraftId, existing.id);
+  assert.deepEqual(index.records.find((record) => record.id === existing.id), existing);
+  assert.equal(index.records.some((record) => record.id === "draft_new_shared"), true);
+});
+
 test("loadIndex returns default index and warns for invalid JSON", () => {
   const historyDir = tempHistoryDir();
   fs.writeFileSync(path.join(historyDir, "index.json"), "{bad json");

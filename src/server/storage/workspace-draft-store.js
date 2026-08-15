@@ -13,25 +13,62 @@ function createWorkspaceDraftStore({ historyDir, createThumbnail = async () => "
   }
 
   function loadIndex() {
-    if (indexCache) return indexCache;
-    if (!fs.existsSync(indexFile)) {
-      indexCache = defaultIndex();
-      return indexCache;
+    if (!indexCache) {
+      if (!fs.existsSync(indexFile)) {
+        indexCache = defaultIndex();
+      } else {
+        try {
+          const value = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+          indexCache = {
+            version: 1,
+            activeDraftId: typeof value.activeDraftId === "string" ? value.activeDraftId : null,
+            restorePreference: ["restore", "new"].includes(value.restorePreference) ? value.restorePreference : "ask",
+            records: Array.isArray(value.records) ? value.records : []
+          };
+        } catch (error) {
+          console.warn("Failed to load workspace index:", error.message || String(error));
+          indexCache = defaultIndex();
+        }
+      }
     }
+    return discoverDraftFiles(indexCache);
+  }
+
+  function discoverDraftFiles(index) {
+    let fileNames;
     try {
-      const value = JSON.parse(fs.readFileSync(indexFile, "utf8"));
-      indexCache = {
-        version: 1,
-        activeDraftId: typeof value.activeDraftId === "string" ? value.activeDraftId : null,
-        restorePreference: ["restore", "new"].includes(value.restorePreference) ? value.restorePreference : "ask",
-        records: Array.isArray(value.records) ? value.records : []
-      };
-      return indexCache;
-    } catch (error) {
-      console.warn("Failed to load workspace index:", error.message || String(error));
-      indexCache = defaultIndex();
-      return indexCache;
+      fileNames = fs.readdirSync(historyDir)
+        .filter((fileName) => /^draft_[^/]+\.json\.gz$/.test(fileName))
+        .sort();
+    } catch {
+      return index;
     }
+
+    const knownIds = new Set(index.records.map((record) => record.id));
+    const discovered = [];
+    for (const fileName of fileNames) {
+      const id = fileName.slice(0, -".json.gz".length);
+      if (knownIds.has(id)) continue;
+      try {
+        const draft = loadDraft(id);
+        if (!draft) continue;
+        const stat = fs.statSync(path.join(historyDir, fileName));
+        const createdAt = Number.isFinite(stat.birthtimeMs) ? Math.round(stat.birthtimeMs) : Date.now();
+        discovered.push({
+          ...createWorkspaceDraftItem(draft, () => createdAt),
+          id,
+          updatedAt: Number.isFinite(stat.mtimeMs) ? Math.round(stat.mtimeMs) : createdAt
+        });
+      } catch (error) {
+        console.warn(`Failed to discover workspace draft ${id}:`, error.message || String(error));
+      }
+    }
+
+    if (discovered.length === 0) return index;
+    discovered.sort((a, b) => b.updatedAt - a.updatedAt);
+    index.records = [...discovered, ...index.records];
+    saveIndex(index);
+    return index;
   }
 
   function ensureHistoryDir() {

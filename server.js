@@ -43,6 +43,9 @@ const {
   testModelConfig
 } = require("./src/server/services/model-config-tester");
 const {
+  requestWithTransparentBackgroundFallback
+} = require("./src/server/services/transparent-image-request");
+const {
   sanitizeFastGeneratedHtml
 } = require("./src/server/services/fast-html-sanitizer");
 const {
@@ -520,21 +523,26 @@ async function redrawAsset(payload, requestContext) {
   if (requestMaskDataUrl) {
     referenceImages.push({ dataUrl: requestMaskDataUrl, name: "slice-completion-mask.png" });
   }
-  const form = new FormData();
   const editSize = toOpenAIImageSize(requestWidth, requestHeight);
-  form.set("model", config.model);
-  form.set("prompt", prompt);
-  form.set("size", editSize);
-  form.set("quality", payload.quality || "high");
-  form.set("output_format", "png");
-  form.set("background", "transparent");
-  form.set("n", "1");
-  form.append("image[]", dataUrlToFile(requestDataUrl, payload.name || "slice-reference.png"));
-  if (requestMaskDataUrl) {
-    form.append("image[]", dataUrlToFile(requestMaskDataUrl, "slice-completion-mask.png"));
-  }
-
-  const data = await requestContext.callForm("/v1/images/edits", form);
+  const createForm = (transparentBackground) => {
+    const form = new FormData();
+    form.set("model", config.model);
+    form.set("prompt", prompt);
+    form.set("size", editSize);
+    form.set("quality", payload.quality || "high");
+    form.set("output_format", "png");
+    if (transparentBackground) form.set("background", "transparent");
+    form.set("n", "1");
+    form.append("image[]", dataUrlToFile(requestDataUrl, payload.name || "slice-reference.png"));
+    if (requestMaskDataUrl) {
+      form.append("image[]", dataUrlToFile(requestMaskDataUrl, "slice-completion-mask.png"));
+    }
+    return form;
+  };
+  const { data, usedFallback } = await requestWithTransparentBackgroundFallback({
+    createRequest: createForm,
+    callRequest: (form) => requestContext.callForm("/v1/images/edits", form)
+  });
   return {
     ...(await normalizeImageResponse(data)),
     provider: {
@@ -542,7 +550,8 @@ async function redrawAsset(payload, requestContext) {
       model: config.model,
       size: editSize
     },
-    transparent: true
+    transparent: !usedFallback,
+    requiresLocalTransparency: usedFallback
   };
 }
 

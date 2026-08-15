@@ -1118,6 +1118,10 @@
         display: grid;
       }
 
+      .global-loading-dialog {
+        inset: 0;
+      }
+
       .connection-test-dialog {
         position: static;
         display: none !important;
@@ -1301,6 +1305,18 @@
         color: #111318;
         font-size: 16px;
         font-weight: 820;
+      }
+
+      .global-loading-dialog .editable-preview-loading-card {
+        box-sizing: border-box;
+        width: min(360px, calc(100vw - 48px));
+      }
+
+      .global-loading-dialog .editable-preview-loading-card strong {
+        max-width: 100%;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+        text-align: center;
       }
 
       .editable-preview-loading-description {
@@ -4968,7 +4984,7 @@
           </div>
         </form>
       </section>
-      <section id="globalLoadingDialog" class="editable-preview-loading-dialog" aria-hidden="true" aria-modal="true" aria-labelledby="globalLoadingTitle">
+      <section id="globalLoadingDialog" class="editable-preview-loading-dialog global-loading-dialog" aria-hidden="true" aria-modal="true" aria-labelledby="globalLoadingTitle">
         <div class="editable-preview-loading-card" role="dialog">
           <div class="editable-preview-loading-spinner" aria-hidden="true"></div>
           <strong id="globalLoadingTitle">正在处理...</strong>
@@ -16632,9 +16648,12 @@ if (typeof module !== "undefined") {
           if (!image?.dataUrl) {
             throw new Error("AI 透明没有返回图片");
           }
+          const transparentDataUrl = result.requiresLocalTransparency
+            ? await removeEdgeBackground(image.dataUrl)
+            : image.dataUrl;
           recordSliceHistory();
           applySliceTransparencyResult(asset, {
-            dataUrl: image.dataUrl,
+            dataUrl: transparentDataUrl,
             ai: true
           });
           activeSliceId = id;
@@ -18144,8 +18163,18 @@ if (typeof module !== "undefined") {
                 x: nodeRect.left - screenRect.left,
                 y: nodeRect.top - screenRect.top,
                 width: nodeRect.width,
-                height: nodeRect.height
-              };
+              height: nodeRect.height
+            };
+          const isScreenSizedAsset = assetRect.x <= 0.5
+            && assetRect.y <= 0.5
+            && assetRect.width >= screenRect.width - 1
+            && assetRect.height >= screenRect.height - 1;
+          if (isScreenSizedAsset) {
+            // A full-screen background belongs directly to the screen. If it
+            // is reparented into an overlapping panel, it creates a new
+            // stacking context and covers the panel's editable content.
+            continue;
+          }
           const selected = chooseReferenceAssetOwnerCandidate(assetRect, candidates);
           if (!selected?.element) continue;
           markHtmlPreviewReferenceOwner(doc, selected.element, nextOwnerId);
@@ -18637,12 +18666,15 @@ if (typeof module !== "undefined") {
           if (node.x > targetWidth || node.y > targetHeight || node.x + node.width < 0 || node.y + node.height < 0) {
             return;
           }
+          const explicitCaptureOrder = Number(node.captureOrder);
           nodes.push({
             ...node,
             captureZIndex: Number.isFinite(Number(node.captureZIndex))
               ? Number(node.captureZIndex)
               : activeCaptureZIndex,
-            captureOrder: captureOrder++
+            captureOrder: Number.isFinite(explicitCaptureOrder)
+              ? explicitCaptureOrder
+              : captureOrder++
           });
         };
 
@@ -18882,7 +18914,7 @@ if (typeof module !== "undefined") {
         };
 
         visit(root);
-        appendMissingReferenceAssetNodes(pushNode, seenReferenceAssetIds);
+        appendMissingReferenceAssetNodes(pushNode, seenReferenceAssetIds, activeHtmlPreviewAssets.length);
         const dedupedNodes = dedupeReferenceAssetNodes(nodes);
         const stackedNodes = sortEditableNodesByStackingOrder(dedupedNodes);
         const sourceImage = getActiveResultImage()?.dataUrl
@@ -18959,11 +18991,11 @@ if (typeof module !== "undefined") {
         return String(matchedAsset?.id || "");
       }
 
-      function appendMissingReferenceAssetNodes(pushNode, seenReferenceAssetIds) {
+      function appendMissingReferenceAssetNodes(pushNode, seenReferenceAssetIds, referenceAssetCount = 0) {
         const activeImage = getActiveResultImage();
         const assetList = activeImage?.sliceManifest?.assets || [];
         const activeIds = new Set(activeHtmlPreviewAssets.map((asset) => String(asset?.id || "")));
-        for (const asset of assetList) {
+        for (const [assetIndex, asset] of assetList.entries()) {
           if (
             !asset?.placement
             || asset.selected === false
@@ -18979,6 +19011,11 @@ if (typeof module !== "undefined") {
           );
           if (!node) continue;
           node.name = safeLayerName(node.name);
+          // A missing reference anchor has no DOM paint order. Keep it below
+          // captured layers so a full-screen fallback background cannot cover them.
+          if (referenceAssetCount > 0) {
+            node.captureOrder = assetIndex - referenceAssetCount;
+          }
           pushNode(node);
         }
       }

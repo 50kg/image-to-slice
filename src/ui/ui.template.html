@@ -15,6 +15,7 @@
         <strong class="startup-title">正在连接本地服务</strong>
         <span id="startupMessage" class="startup-message">正在检查 127.0.0.1:18787，并加载模型配置…</span>
         <button id="startupRetry" class="startup-retry" type="button" hidden>重新连接</button>
+        <button id="startupManualMode" class="startup-manual-mode" type="button">不启动服务，进入手动模式</button>
       </div>
     </div>
     <main class="shell">
@@ -57,6 +58,10 @@
 
       <section class="workspace">
         <aside class="sidebar">
+          <nav class="workflow-tabs" aria-label="工作模式">
+            <button class="workflow-tab active" type="button" data-workflow-mode="automatic">AI 自动模式</button>
+            <button class="workflow-tab" type="button" data-workflow-mode="manual">手动 JSON 模式</button>
+          </nav>
           <nav class="tabs" aria-label="生成模式">
             <button class="tab active" type="button" data-mode="text-to-image">
               <span>文生图</span>
@@ -65,6 +70,46 @@
               <span>图生图</span>
             </button>
           </nav>
+
+          <section id="manualModePanel" class="manual-mode-panel" aria-label="手动 JSON 导入">
+            <div class="manual-panel-intro">
+              <strong>零 API 手动导入</strong>
+              <span>粘贴结构 JSON 并上传其中引用的同名图片，直接生成可编辑 Figma 图层。</span>
+            </div>
+            <section class="manual-section">
+              <div class="manual-section-head"><strong>1. JSON 结构</strong><span id="manualJsonSummary"></span></div>
+              <textarea id="manualJsonInput" class="manual-json-input" spellcheck="false" aria-label="手动导入 JSON"></textarea>
+              <div class="manual-inline-actions">
+                <button id="manualJsonFileButton" type="button">导入 .json</button>
+                <button id="manualFormatJson" type="button">格式化</button>
+                <button id="manualExampleJson" type="button">载入示例</button>
+                <button id="manualDownloadJson" type="button">导出草稿</button>
+                <input id="manualJsonFile" type="file" accept="application/json,.json" hidden />
+              </div>
+            </section>
+            <section class="manual-section">
+              <div class="manual-section-head"><strong>2. 图片素材</strong><span id="manualAssetSummary">尚未上传</span></div>
+              <label class="manual-file-field">
+                <span>背景图</span>
+                <input id="manualBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              </label>
+              <label class="manual-file-field">
+                <span>其他素材（可多选）</span>
+                <input id="manualAssetFiles" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple />
+              </label>
+              <div id="manualAssetList" class="manual-asset-list"><span>上传后将按完整文件名与 JSON 的 src 匹配。</span></div>
+            </section>
+            <section class="manual-section manual-settings-grid">
+              <strong>3. 渲染设置</strong>
+              <label>插入位置<select id="manualTarget"><option value="current-page">当前页面</option><option value="new-page">新建页面</option></select></label>
+              <label>背景处理<select id="manualBackgroundMode"><option value="image-node">底层图片节点</option><option value="frame-fill">Frame 填充</option></select></label>
+            </section>
+            <div id="manualValidation" class="manual-validation" role="status">尚未校验</div>
+            <div class="manual-primary-actions">
+              <button id="manualValidate" type="button">预校验</button>
+              <button id="manualGenerate" class="primary" type="button">生成 Figma 图层</button>
+            </div>
+          </section>
 
           <div class="controls">
             <section class="section">

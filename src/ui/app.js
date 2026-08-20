@@ -146,6 +146,7 @@
       const startupGate = document.getElementById("startupGate");
       const startupMessage = document.getElementById("startupMessage");
       const startupRetry = document.getElementById("startupRetry");
+      const startupManualMode = document.getElementById("startupManualMode");
       const windowToggle = document.getElementById("windowToggle");
       const windowResizer = document.getElementById("windowResizer");
       let previewCanvasViewport = null;
@@ -341,6 +342,10 @@
       let saveWindowStateTimer = null;
       let resizeDrag = null;
       const figExportUiMode = getFigExportUiMode(isEmbeddedPluginHost());
+      const manualModeController = initializeManualModeUi({
+        setStatus,
+        isEmbeddedHost: isEmbeddedPluginHost
+      });
 
       initUiWindowState();
       placeSourceButton.textContent = figExportUiMode.sliceLabel;
@@ -353,6 +358,11 @@
       initializeLocalService();
 
       startupRetry.addEventListener("click", initializeLocalService);
+      startupManualMode.addEventListener("click", () => {
+        startupGate.hidden = true;
+        manualModeController.activateManualMode();
+        setStatus("已进入零 API 手动模式；本地服务未启动不会影响 JSON 导入。", "info");
+      });
       statusClose.addEventListener("click", () => {
         hideStatus();
       });
@@ -1437,6 +1447,7 @@
 
       window.onmessage = (event) => {
         const message = event.data?.pluginMessage;
+        if (manualModeController.handlePluginMessage(message)) return;
         const activeImportMessage = readActiveFigmaImportMessage(message, {
           figmaImportPending,
           activeFigmaImportRequestId

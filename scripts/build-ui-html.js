@@ -37,6 +37,7 @@ const DEFAULT_APP_SCRIPT_PATHS = [
   path.join("src", "ui", "services", "html-preview-inspector.js"),
   path.join("src", "ui", "services", "zip.js"),
   path.join("src", "ui", "services", "figma-frame-html-export.js"),
+  path.join("src", "ui", "services", "manual-mode.js"),
 
   // Local UI state helpers.
   path.join("src", "ui", "state", "slice-ai-state.js"),
@@ -54,6 +55,7 @@ const DEFAULT_APP_SCRIPT_PATHS = [
 
   // DOM renderers used by app.js.
   path.join("src", "ui", "renderers", "model-settings.js"),
+  path.join("src", "ui", "renderers", "manual-mode.js"),
 
   // Bootstrap and event orchestration. Keep this last.
   path.join("src", "ui", "app.js")

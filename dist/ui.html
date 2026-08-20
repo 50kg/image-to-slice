@@ -109,6 +109,14 @@
         background: #111318;
       }
 
+      .startup-manual-mode {
+        padding: 8px 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        color: var(--ink);
+        background: #ffffff;
+      }
+
       @keyframes startup-spin {
         to { transform: rotate(360deg); }
       }
@@ -281,6 +289,148 @@
         border-radius: 16px;
         background: #f0f0f2;
       }
+
+      .workflow-tabs {
+        position: relative;
+        z-index: 6;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin: 12px 22px 0;
+        padding: 3px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fafbfc;
+      }
+
+      .workflow-tab {
+        min-height: 32px;
+        border-radius: 7px;
+        color: #727783;
+        background: transparent;
+        font-size: 11px;
+        font-weight: 760;
+      }
+
+      .workflow-tab.active {
+        color: #ffffff;
+        background: #20232a;
+      }
+
+      .manual-mode-panel {
+        position: relative;
+        z-index: 5;
+        display: none;
+        height: calc(100% - 58px);
+        overflow-y: auto;
+        padding: 14px 18px 110px;
+      }
+
+      body.manual-mode .manual-mode-panel {
+        display: block;
+      }
+
+      body.manual-mode .sidebar > .tabs,
+      body.manual-mode .sidebar > .controls,
+      body.manual-mode .sidebar > .cut-section,
+      body.manual-mode .sidebar > .settings-trigger,
+      body.manual-mode .sidebar > .new-work-trigger,
+      body.manual-mode .sidebar > .drafts-trigger,
+      body.manual-mode .topbar-actions > .import-actions,
+      body.manual-mode .topbar-actions > .import-action-group.ai,
+      body.manual-mode #previewZoomControls {
+        display: none !important;
+      }
+
+      .manual-panel-intro,
+      .manual-section {
+        display: grid;
+        gap: 9px;
+        margin-bottom: 12px;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #ffffff;
+      }
+
+      .manual-panel-intro {
+        border-color: #cfe1ff;
+        background: #f5f9ff;
+      }
+
+      .manual-panel-intro strong { font-size: 13px; }
+      .manual-panel-intro span { color: #687386; line-height: 1.55; }
+      .manual-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .manual-section-head span { color: var(--muted); font-size: 10px; }
+
+      .manual-json-input {
+        width: 100%;
+        min-height: 230px;
+        resize: vertical;
+        padding: 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        outline: none;
+        background: #fbfcfe;
+        font: 10px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+      }
+
+      .manual-json-input:focus { border-color: #8295b7; }
+      .manual-inline-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+      .manual-inline-actions button,
+      .manual-primary-actions button,
+      .manual-asset-remove {
+        min-height: 31px;
+        padding: 0 9px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #ffffff;
+        font-weight: 700;
+      }
+
+      .manual-file-field,
+      .manual-settings-grid label {
+        display: grid;
+        gap: 5px;
+        color: #555c68;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .manual-file-field input,
+      .manual-settings-grid select {
+        min-width: 0;
+        width: 100%;
+        min-height: 34px;
+        padding: 6px 8px;
+        border: 1px solid var(--line-strong);
+        border-radius: 7px;
+        background: #ffffff;
+      }
+
+      .manual-asset-list { display: grid; gap: 6px; color: var(--muted); font-size: 10px; }
+      .manual-asset-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+      .manual-asset-row span { overflow: hidden; flex: 1; color: #4d5360; text-overflow: ellipsis; white-space: nowrap; }
+      .manual-asset-row em { color: #26834d; font-style: normal; }
+      .manual-asset-remove { min-height: 25px; padding: 0 7px; color: var(--danger); font-size: 10px; }
+      .manual-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .manual-settings-grid > strong { grid-column: 1 / -1; }
+
+      .manual-validation {
+        margin-bottom: 10px;
+        padding: 10px 11px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: #6e7480;
+        background: #f8f9fb;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+
+      .manual-validation.success { border-color: #b9dfc7; color: #287449; background: #f2fbf5; }
+      .manual-validation.error { border-color: #efc0bb; color: #a63e34; background: #fff7f6; }
+      .manual-primary-actions { display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: 8px; }
+      .manual-primary-actions button { min-height: 39px; }
+      .manual-primary-actions .primary { border-color: #111318; color: #ffffff; background: #111318; }
 
       .tab {
         height: 42px;
@@ -4701,6 +4851,7 @@
         <strong class="startup-title">正在连接本地服务</strong>
         <span id="startupMessage" class="startup-message">正在检查 127.0.0.1:18787，并加载模型配置…</span>
         <button id="startupRetry" class="startup-retry" type="button" hidden>重新连接</button>
+        <button id="startupManualMode" class="startup-manual-mode" type="button">不启动服务，进入手动模式</button>
       </div>
     </div>
     <main class="shell">
@@ -4743,6 +4894,10 @@
 
       <section class="workspace">
         <aside class="sidebar">
+          <nav class="workflow-tabs" aria-label="工作模式">
+            <button class="workflow-tab active" type="button" data-workflow-mode="automatic">AI 自动模式</button>
+            <button class="workflow-tab" type="button" data-workflow-mode="manual">手动 JSON 模式</button>
+          </nav>
           <nav class="tabs" aria-label="生成模式">
             <button class="tab active" type="button" data-mode="text-to-image">
               <span>文生图</span>
@@ -4751,6 +4906,46 @@
               <span>图生图</span>
             </button>
           </nav>
+
+          <section id="manualModePanel" class="manual-mode-panel" aria-label="手动 JSON 导入">
+            <div class="manual-panel-intro">
+              <strong>零 API 手动导入</strong>
+              <span>粘贴结构 JSON 并上传其中引用的同名图片，直接生成可编辑 Figma 图层。</span>
+            </div>
+            <section class="manual-section">
+              <div class="manual-section-head"><strong>1. JSON 结构</strong><span id="manualJsonSummary"></span></div>
+              <textarea id="manualJsonInput" class="manual-json-input" spellcheck="false" aria-label="手动导入 JSON"></textarea>
+              <div class="manual-inline-actions">
+                <button id="manualJsonFileButton" type="button">导入 .json</button>
+                <button id="manualFormatJson" type="button">格式化</button>
+                <button id="manualExampleJson" type="button">载入示例</button>
+                <button id="manualDownloadJson" type="button">导出草稿</button>
+                <input id="manualJsonFile" type="file" accept="application/json,.json" hidden />
+              </div>
+            </section>
+            <section class="manual-section">
+              <div class="manual-section-head"><strong>2. 图片素材</strong><span id="manualAssetSummary">尚未上传</span></div>
+              <label class="manual-file-field">
+                <span>背景图</span>
+                <input id="manualBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              </label>
+              <label class="manual-file-field">
+                <span>其他素材（可多选）</span>
+                <input id="manualAssetFiles" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple />
+              </label>
+              <div id="manualAssetList" class="manual-asset-list"><span>上传后将按完整文件名与 JSON 的 src 匹配。</span></div>
+            </section>
+            <section class="manual-section manual-settings-grid">
+              <strong>3. 渲染设置</strong>
+              <label>插入位置<select id="manualTarget"><option value="current-page">当前页面</option><option value="new-page">新建页面</option></select></label>
+              <label>背景处理<select id="manualBackgroundMode"><option value="image-node">底层图片节点</option><option value="frame-fill">Frame 填充</option></select></label>
+            </section>
+            <div id="manualValidation" class="manual-validation" role="status">尚未校验</div>
+            <div class="manual-primary-actions">
+              <button id="manualValidate" type="button">预校验</button>
+              <button id="manualGenerate" class="primary" type="button">生成 Figma 图层</button>
+            </div>
+          </section>
 
           <div class="controls">
             <section class="section">
@@ -10088,6 +10283,193 @@ if (typeof module !== "undefined") {
   };
 }
 
+const MANUAL_ELEMENT_TYPES = new Set(["text", "rectangle", "image", "group", "container", "frame"]);
+
+const SAMPLE_MANUAL_DOCUMENT = {
+  version: "1.0",
+  meta: {
+    name: "手动导入示例",
+    width: 1080,
+    height: 1440
+  },
+  background: {
+    type: "image",
+    src: "background.png"
+  },
+  assets: ["background.png", "person.png"],
+  elements: [
+    {
+      id: "title",
+      type: "text",
+      name: "主标题",
+      text: "手动 JSON 模式",
+      x: 72,
+      y: 80,
+      width: 720,
+      height: 76,
+      style: {
+        fontSize: 52,
+        fontWeight: 700,
+        lineHeight: 68,
+        color: "#FFFFFF",
+        textAlign: "left"
+      }
+    },
+    {
+      id: "person",
+      type: "image",
+      name: "人物素材",
+      src: "person.png",
+      x: 650,
+      y: 260,
+      width: 330,
+      height: 620,
+      fit: "fit"
+    },
+    {
+      id: "button",
+      type: "group",
+      name: "报名按钮",
+      x: 72,
+      y: 1220,
+      width: 280,
+      height: 80,
+      children: [
+        {
+          id: "button-bg",
+          type: "rectangle",
+          name: "按钮背景",
+          x: 0,
+          y: 0,
+          width: 280,
+          height: 80,
+          style: { fill: "#2D8CFF", cornerRadius: 18 }
+        },
+        {
+          id: "button-label",
+          type: "text",
+          name: "按钮文字",
+          text: "立即报名",
+          x: 42,
+          y: 22,
+          width: 196,
+          height: 38,
+          style: { fontSize: 28, fontWeight: 600, color: "#FFFFFF", textAlign: "center" }
+        }
+      ]
+    }
+  ]
+};
+
+function formatManualDocument(document = SAMPLE_MANUAL_DOCUMENT) {
+  return JSON.stringify(document, null, 2);
+}
+
+function parseManualJson(text) {
+  const source = String(text || "").trim();
+  if (!source) {
+    return { document: null, errors: ["JSON 内容不能为空。"] };
+  }
+  try {
+    const document = JSON.parse(source);
+    return { document, errors: validateManualDocument(document) };
+  } catch (error) {
+    return { document: null, errors: [`JSON 语法错误：${error.message || String(error)}`] };
+  }
+}
+
+function validateManualDocument(document) {
+  const errors = [];
+  if (!document || typeof document !== "object" || Array.isArray(document)) {
+    return ["根节点必须是一个 JSON 对象。"];
+  }
+  if (!document.meta || typeof document.meta !== "object") {
+    errors.push("缺少 meta 根字段。");
+  } else {
+    validatePositiveNumber(document.meta.width, "meta.width", errors);
+    validatePositiveNumber(document.meta.height, "meta.height", errors);
+  }
+  if (!Array.isArray(document.elements)) {
+    errors.push("elements 必须是数组。");
+  } else {
+    document.elements.forEach((element, index) => validateManualElement(element, `elements[${index}]`, errors));
+  }
+  if (document.background !== undefined && (!document.background || typeof document.background !== "object" || Array.isArray(document.background))) {
+    errors.push("background 必须是对象。");
+  }
+  if (document.background?.type === "image" && !normalizeAssetName(document.background.src)) {
+    errors.push("background.src：图片背景必须指定素材文件名。");
+  }
+  if (document.assets !== undefined && !Array.isArray(document.assets)) {
+    errors.push("assets 必须是文件名数组。");
+  }
+  return errors;
+}
+
+function validateManualElement(element, path, errors) {
+  if (!element || typeof element !== "object" || Array.isArray(element)) {
+    errors.push(`${path} 必须是对象。`);
+    return;
+  }
+  const type = String(element.type || "").toLowerCase();
+  if (!type) errors.push(`${path}.type 缺失。`);
+  else if (!MANUAL_ELEMENT_TYPES.has(type)) errors.push(`${path}.type 不支持“${element.type}”。`);
+  ["x", "y"].forEach((field) => validateFiniteNumber(element[field], `${path}.${field}`, errors));
+  ["width", "height"].forEach((field) => validatePositiveNumber(element[field], `${path}.${field}`, errors));
+  if (type === "text" && element.text === undefined) errors.push(`${path}.text 缺失。`);
+  if (type === "image" && !normalizeAssetName(element.src)) errors.push(`${path}.src 缺失。`);
+  if (["group", "container", "frame"].includes(type)) {
+    if (!Array.isArray(element.children)) errors.push(`${path}.children 必须是数组。`);
+    else element.children.forEach((child, index) => validateManualElement(child, `${path}.children[${index}]`, errors));
+  }
+}
+
+function validateFiniteNumber(value, path, errors) {
+  if (!Number.isFinite(Number(value))) errors.push(`${path} 必须是数字。`);
+}
+
+function validatePositiveNumber(value, path, errors) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) errors.push(`${path} 必须是大于 0 的数字。`);
+}
+
+function collectManualAssetNames(document) {
+  const names = new Set();
+  const add = (value) => {
+    const name = normalizeAssetName(value);
+    if (name) names.add(name);
+  };
+  if (document?.background?.type === "image") add(document.background.src);
+  const visit = (elements) => (elements || []).forEach((element) => {
+    if (String(element?.type || "").toLowerCase() === "image") add(element.src);
+    if (Array.isArray(element?.children)) visit(element.children);
+  });
+  visit(document?.elements);
+  return [...names];
+}
+
+function findMissingManualAssets(document, assetMap) {
+  const available = assetMap instanceof Map ? assetMap : new Map(Object.entries(assetMap || {}));
+  return collectManualAssetNames(document).filter((name) => !available.has(name));
+}
+
+function normalizeAssetName(value) {
+  return String(value || "").trim().replace(/^.*[\\/]/, "");
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    MANUAL_ELEMENT_TYPES,
+    SAMPLE_MANUAL_DOCUMENT,
+    collectManualAssetNames,
+    findMissingManualAssets,
+    formatManualDocument,
+    normalizeAssetName,
+    parseManualJson,
+    validateManualDocument
+  };
+}
+
 function hasProcessedSliceResult(asset) {
   return Boolean(asset?.aiTransparent || asset?.aiRedrawn);
 }
@@ -11686,6 +12068,254 @@ if (typeof module !== "undefined") {
   };
 }
 
+function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
+  const workflowButtons = [...document.querySelectorAll("[data-workflow-mode]")];
+  const jsonInput = document.getElementById("manualJsonInput");
+  const jsonFileButton = document.getElementById("manualJsonFileButton");
+  const jsonFileInput = document.getElementById("manualJsonFile");
+  const formatButton = document.getElementById("manualFormatJson");
+  const exampleButton = document.getElementById("manualExampleJson");
+  const downloadButton = document.getElementById("manualDownloadJson");
+  const backgroundInput = document.getElementById("manualBackgroundFile");
+  const assetInput = document.getElementById("manualAssetFiles");
+  const assetList = document.getElementById("manualAssetList");
+  const assetSummary = document.getElementById("manualAssetSummary");
+  const jsonSummary = document.getElementById("manualJsonSummary");
+  const targetSelect = document.getElementById("manualTarget");
+  const backgroundModeSelect = document.getElementById("manualBackgroundMode");
+  const validation = document.getElementById("manualValidation");
+  const validateButton = document.getElementById("manualValidate");
+  const generateButton = document.getElementById("manualGenerate");
+  const assetMap = new Map();
+  let backgroundAssetName = "";
+  let activeRequestId = "";
+  let requestSequence = 0;
+
+  jsonInput.value = formatManualDocument();
+  updateJsonSummary();
+
+  workflowButtons.forEach((button) => button.addEventListener("click", () => {
+    setWorkflowMode(button.dataset.workflowMode || "automatic");
+  }));
+  jsonInput.addEventListener("input", () => {
+    updateJsonSummary();
+    setValidation("JSON 已修改，请重新校验。", "");
+  });
+  jsonFileButton.addEventListener("click", () => jsonFileInput.click());
+  jsonFileInput.addEventListener("change", async () => {
+    const file = jsonFileInput.files?.[0];
+    jsonFileInput.value = "";
+    if (!file) return;
+    try {
+      jsonInput.value = await file.text();
+      updateJsonSummary();
+      validateCurrentDocument();
+    } catch (error) {
+      setValidation(`读取 JSON 文件失败：${error.message || String(error)}`, "error");
+    }
+  });
+  formatButton.addEventListener("click", () => {
+    const result = parseManualJson(jsonInput.value);
+    if (!result.document) {
+      setValidation(result.errors.join("\n"), "error");
+      return;
+    }
+    jsonInput.value = formatManualDocument(result.document);
+    updateJsonSummary();
+    showValidationResult(result.document, result.errors);
+  });
+  exampleButton.addEventListener("click", () => {
+    jsonInput.value = formatManualDocument();
+    updateJsonSummary();
+    validateCurrentDocument();
+  });
+  downloadButton.addEventListener("click", () => {
+    const result = parseManualJson(jsonInput.value);
+    if (!result.document) {
+      setValidation(result.errors.join("\n"), "error");
+      return;
+    }
+    const blob = new Blob([formatManualDocument(result.document)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${String(result.document.meta?.name || "manual-design").replace(/[\\/:*?\"<>|]+/g, "_")}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+  backgroundInput.addEventListener("change", async () => {
+    const file = backgroundInput.files?.[0];
+    if (!file) return;
+    if (backgroundAssetName && backgroundAssetName !== file.name) assetMap.delete(backgroundAssetName);
+    backgroundAssetName = file.name;
+    await addAssetFiles([file]);
+  });
+  assetInput.addEventListener("change", async () => {
+    await addAssetFiles([...assetInput.files || []]);
+    assetInput.value = "";
+  });
+  assetList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-manual-remove-asset]");
+    if (!button) return;
+    const name = button.dataset.manualRemoveAsset;
+    assetMap.delete(name);
+    if (backgroundAssetName === name) {
+      backgroundAssetName = "";
+      backgroundInput.value = "";
+    }
+    renderAssetList();
+  });
+  validateButton.addEventListener("click", validateCurrentDocument);
+  generateButton.addEventListener("click", () => {
+    if (activeRequestId) return;
+    const result = validateCurrentDocument();
+    if (!result) return;
+    if (!isEmbeddedHost()) {
+      setStatus("请在 Figma 插件环境中点击生成；当前页面只能完成 JSON 和素材校验。", "warning");
+      return;
+    }
+    activeRequestId = `manual-import-${Date.now()}-${++requestSequence}`;
+    generateButton.disabled = true;
+    generateButton.textContent = "正在生成…";
+    parent.postMessage({
+      pluginMessage: {
+        type: "create-manual-design-screen",
+        requestId: activeRequestId,
+        payload: {
+          document: result.document,
+          assetMap: Object.fromEntries(assetMap),
+          target: targetSelect.value,
+          backgroundMode: backgroundModeSelect.value
+        }
+      }
+    }, "*");
+  });
+
+  async function addAssetFiles(files) {
+    const supported = files.filter((file) => /^image\/(?:png|jpe?g|webp|gif)$/i.test(file.type));
+    if (supported.length !== files.length) {
+      setStatus("已忽略不支持的素材格式；请使用 PNG、JPG、WebP 或 GIF。", "warning");
+    }
+    for (const file of supported) assetMap.set(file.name, await readFileAsDataUrl(file));
+    renderAssetList();
+    validateCurrentDocument();
+  }
+
+  function renderAssetList() {
+    assetList.replaceChildren();
+    if (!assetMap.size) {
+      const empty = document.createElement("span");
+      empty.textContent = "上传后将按完整文件名与 JSON 的 src 匹配。";
+      assetList.appendChild(empty);
+    } else {
+      for (const name of assetMap.keys()) {
+        const row = document.createElement("div");
+        row.className = "manual-asset-row";
+        const label = document.createElement("span");
+        label.textContent = name;
+        const kind = document.createElement("em");
+        kind.textContent = name === backgroundAssetName ? "背景" : "素材";
+        const remove = document.createElement("button");
+        remove.className = "manual-asset-remove";
+        remove.type = "button";
+        remove.dataset.manualRemoveAsset = name;
+        remove.textContent = "删除";
+        row.append(label, kind, remove);
+        assetList.appendChild(row);
+      }
+    }
+    assetSummary.textContent = assetMap.size ? `已上传 ${assetMap.size} 个` : "尚未上传";
+  }
+
+  function validateCurrentDocument() {
+    const result = parseManualJson(jsonInput.value);
+    showValidationResult(result.document, result.errors);
+    return result.document && result.errors.length === 0 && findMissingManualAssets(result.document, assetMap).length === 0
+      ? result
+      : null;
+  }
+
+  function showValidationResult(documentValue, schemaErrors) {
+    const errors = [...schemaErrors];
+    if (documentValue && !schemaErrors.length) {
+      const missing = findMissingManualAssets(documentValue, assetMap);
+      if (missing.length) errors.push(`缺少素材：${missing.join("、")}。请上传与 src 同名的文件。`);
+    }
+    if (errors.length) {
+      setValidation(errors.map((error, index) => `${index + 1}. ${error}`).join("\n"), "error");
+      return false;
+    }
+    const count = countManualElements(documentValue.elements);
+    setValidation(`校验通过：画布 ${documentValue.meta.width} × ${documentValue.meta.height}，共 ${count} 个图层。`, "success");
+    return true;
+  }
+
+  function updateJsonSummary() {
+    const result = parseManualJson(jsonInput.value);
+    jsonSummary.textContent = result.document && !result.errors.length
+      ? `${result.document.meta.width} × ${result.document.meta.height}`
+      : "待校验";
+  }
+
+  function setValidation(message, type) {
+    validation.textContent = message;
+    validation.classList.toggle("success", type === "success");
+    validation.classList.toggle("error", type === "error");
+  }
+
+  function setWorkflowMode(mode) {
+    const manual = mode === "manual";
+    document.body.classList.toggle("manual-mode", manual);
+    workflowButtons.forEach((button) => button.classList.toggle("active", button.dataset.workflowMode === mode));
+    if (manual) document.getElementById("manualModePanel").scrollTop = 0;
+  }
+
+  function handlePluginMessage(message) {
+    if (!message || message.requestId !== activeRequestId) return false;
+    if (message.type === "manual-import-success") {
+      finishRequest();
+      setValidation(`生成完成：已创建 ${Number(message.createdCount) || 0} 个可编辑图层。`, "success");
+      setStatus(`“${message.frameName || "手动设计"}”已导入 Figma。`, "success");
+      return true;
+    }
+    if (message.type === "generation-error" && message.operation === "manual-import") {
+      finishRequest();
+      setValidation(`生成失败：${message.message || "未知错误"}`, "error");
+      setStatus(`手动导入失败：${message.message || "未知错误"}`, "error");
+      return true;
+    }
+    return false;
+  }
+
+  function finishRequest() {
+    activeRequestId = "";
+    generateButton.disabled = false;
+    generateButton.textContent = "生成 Figma 图层";
+  }
+
+  return {
+    activateManualMode() { setWorkflowMode("manual"); },
+    handlePluginMessage
+  };
+}
+
+function countManualElements(elements) {
+  return (elements || []).reduce((count, element) => count + 1 + countManualElements(element.children), 0);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error(`读取 ${file.name} 失败`));
+    reader.readAsDataURL(file);
+  });
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { countManualElements };
+}
+
       const promptInput = document.getElementById("prompt");
       const charCount = document.getElementById("charCount");
       const widthInput = document.getElementById("width");
@@ -11834,6 +12464,7 @@ if (typeof module !== "undefined") {
       const startupGate = document.getElementById("startupGate");
       const startupMessage = document.getElementById("startupMessage");
       const startupRetry = document.getElementById("startupRetry");
+      const startupManualMode = document.getElementById("startupManualMode");
       const windowToggle = document.getElementById("windowToggle");
       const windowResizer = document.getElementById("windowResizer");
       let previewCanvasViewport = null;
@@ -12029,6 +12660,10 @@ if (typeof module !== "undefined") {
       let saveWindowStateTimer = null;
       let resizeDrag = null;
       const figExportUiMode = getFigExportUiMode(isEmbeddedPluginHost());
+      const manualModeController = initializeManualModeUi({
+        setStatus,
+        isEmbeddedHost: isEmbeddedPluginHost
+      });
 
       initUiWindowState();
       placeSourceButton.textContent = figExportUiMode.sliceLabel;
@@ -12041,6 +12676,11 @@ if (typeof module !== "undefined") {
       initializeLocalService();
 
       startupRetry.addEventListener("click", initializeLocalService);
+      startupManualMode.addEventListener("click", () => {
+        startupGate.hidden = true;
+        manualModeController.activateManualMode();
+        setStatus("已进入零 API 手动模式；本地服务未启动不会影响 JSON 导入。", "info");
+      });
       statusClose.addEventListener("click", () => {
         hideStatus();
       });
@@ -13125,6 +13765,7 @@ if (typeof module !== "undefined") {
 
       window.onmessage = (event) => {
         const message = event.data?.pluginMessage;
+        if (manualModeController.handlePluginMessage(message)) return;
         const activeImportMessage = readActiveFigmaImportMessage(message, {
           figmaImportPending,
           activeFigmaImportRequestId

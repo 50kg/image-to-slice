@@ -102,6 +102,14 @@ body.loading-interaction-locked .html-preview-dialog.open {
   background: #111318;
 }
 
+.startup-manual-mode {
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #ffffff;
+}
+
 @keyframes startup-spin {
   to { transform: rotate(360deg); }
 }
@@ -274,6 +282,148 @@ button:disabled {
   border-radius: 16px;
   background: #f0f0f2;
 }
+
+.workflow-tabs {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 12px 22px 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.workflow-tab {
+  min-height: 32px;
+  border-radius: 7px;
+  color: #727783;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.workflow-tab.active {
+  color: #ffffff;
+  background: #20232a;
+}
+
+.manual-mode-panel {
+  position: relative;
+  z-index: 5;
+  display: none;
+  height: calc(100% - 58px);
+  overflow-y: auto;
+  padding: 14px 18px 110px;
+}
+
+body.manual-mode .manual-mode-panel {
+  display: block;
+}
+
+body.manual-mode .sidebar > .tabs,
+body.manual-mode .sidebar > .controls,
+body.manual-mode .sidebar > .cut-section,
+body.manual-mode .sidebar > .settings-trigger,
+body.manual-mode .sidebar > .new-work-trigger,
+body.manual-mode .sidebar > .drafts-trigger,
+body.manual-mode .topbar-actions > .import-actions,
+body.manual-mode .topbar-actions > .import-action-group.ai,
+body.manual-mode #previewZoomControls {
+  display: none !important;
+}
+
+.manual-panel-intro,
+.manual-section {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 12px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #ffffff;
+}
+
+.manual-panel-intro {
+  border-color: #cfe1ff;
+  background: #f5f9ff;
+}
+
+.manual-panel-intro strong { font-size: 13px; }
+.manual-panel-intro span { color: #687386; line-height: 1.55; }
+.manual-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.manual-section-head span { color: var(--muted); font-size: 10px; }
+
+.manual-json-input {
+  width: 100%;
+  min-height: 230px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  outline: none;
+  background: #fbfcfe;
+  font: 10px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.manual-json-input:focus { border-color: #8295b7; }
+.manual-inline-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.manual-inline-actions button,
+.manual-primary-actions button,
+.manual-asset-remove {
+  min-height: 31px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.manual-file-field,
+.manual-settings-grid label {
+  display: grid;
+  gap: 5px;
+  color: #555c68;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.manual-file-field input,
+.manual-settings-grid select {
+  min-width: 0;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.manual-asset-list { display: grid; gap: 6px; color: var(--muted); font-size: 10px; }
+.manual-asset-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.manual-asset-row span { overflow: hidden; flex: 1; color: #4d5360; text-overflow: ellipsis; white-space: nowrap; }
+.manual-asset-row em { color: #26834d; font-style: normal; }
+.manual-asset-remove { min-height: 25px; padding: 0 7px; color: var(--danger); font-size: 10px; }
+.manual-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.manual-settings-grid > strong { grid-column: 1 / -1; }
+
+.manual-validation {
+  margin-bottom: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #6e7480;
+  background: #f8f9fb;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.manual-validation.success { border-color: #b9dfc7; color: #287449; background: #f2fbf5; }
+.manual-validation.error { border-color: #efc0bb; color: #a63e34; background: #fff7f6; }
+.manual-primary-actions { display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: 8px; }
+.manual-primary-actions button { min-height: 39px; }
+.manual-primary-actions .primary { border-color: #111318; color: #ffffff; background: #111318; }
 
 .tab {
   height: 42px;

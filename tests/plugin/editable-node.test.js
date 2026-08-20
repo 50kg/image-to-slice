@@ -101,6 +101,38 @@ test("createEditableNode loads preferred font and creates text nodes", async () 
   assert.deepEqual(loadedFonts[0], { family: "PingFang SC", style: "Semibold" });
 });
 
+test("createEditableNode prefers a requested font family and falls back when unavailable", async () => {
+  const requestedText = createResizableNode("TEXT");
+  const requestedLoads = [];
+  const requestedNode = await createEditableNode({
+    figmaApi: {
+      createText: () => requestedText,
+      loadFontAsync: async (font) => requestedLoads.push(font)
+    },
+    definition: { type: "text", text: "Brand", fontFamily: "Brand Sans", fontWeight: 700, width: 100, height: 30 }
+  });
+  assert.deepEqual(requestedLoads, [{ family: "Brand Sans", style: "Bold" }]);
+  assert.deepEqual(requestedNode.fontName, { family: "Brand Sans", style: "Bold" });
+
+  const fallbackText = createResizableNode("TEXT");
+  const fallbackLoads = [];
+  const fallbackNode = await createEditableNode({
+    figmaApi: {
+      createText: () => fallbackText,
+      loadFontAsync: async (font) => {
+        fallbackLoads.push(font);
+        if (font.family === "Missing Font") throw new Error("missing");
+      }
+    },
+    definition: { type: "text", text: "中文", fontFamily: "Missing Font", width: 100, height: 30 }
+  });
+  assert.deepEqual(fallbackLoads.slice(0, 2), [
+    { family: "Missing Font", style: "Regular" },
+    { family: "PingFang SC", style: "Regular" }
+  ]);
+  assert.deepEqual(fallbackNode.fontName, { family: "PingFang SC", style: "Regular" });
+});
+
 test("createEditableNode ignores non-numeric letter spacing and accepts pixel values", async () => {
   const loadedFonts = [];
   const figmaApi = {

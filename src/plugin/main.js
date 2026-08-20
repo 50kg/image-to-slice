@@ -14,6 +14,9 @@ const {
 const {
   bindFigmaFrameExportSelectionState
 } = require("./figma-frame-export-selection");
+const {
+  createManualModeRuntime
+} = require("./manual-mode-runtime");
 
 figma.showUI(__html__, { width: DEFAULT_UI_WINDOW.width, height: DEFAULT_UI_WINDOW.height, themeColors: true });
 
@@ -31,6 +34,11 @@ const publishFigmaFrameExportSelectionState = bindFigmaFrameExportSelectionState
   figmaApi: figma,
   postMessage: uiRuntime.safePostMessage
 });
+const manualModeRuntime = createManualModeRuntime({
+  figmaApi: figma,
+  atob: typeof atob === "function" ? atob : undefined,
+  postMessage: uiRuntime.safePostMessage
+});
 
 uiRuntime.restoreUiWindowState().catch((error) => {
   uiRuntime.notifyRecoverableError("窗口状态恢复失败", error);
@@ -38,6 +46,7 @@ uiRuntime.restoreUiWindowState().catch((error) => {
 
 figma.ui.onmessage = async (message) => {
   if (await screenImportRuntime.handle(message)) return;
+  if (await manualModeRuntime.handle(message)) return;
 
   try {
     if (message.type === "export-selected-figma-frame-html") {

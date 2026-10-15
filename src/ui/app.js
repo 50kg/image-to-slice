@@ -146,6 +146,7 @@
       const startupGate = document.getElementById("startupGate");
       const startupMessage = document.getElementById("startupMessage");
       const startupRetry = document.getElementById("startupRetry");
+      const startupManualMode = document.getElementById("startupManualMode");
       const windowToggle = document.getElementById("windowToggle");
       const windowResizer = document.getElementById("windowResizer");
       let previewCanvasViewport = null;
@@ -341,6 +342,14 @@
       let saveWindowStateTimer = null;
       let resizeDrag = null;
       const figExportUiMode = getFigExportUiMode(isEmbeddedPluginHost());
+      const manualModeController = initializeManualModeUi({
+        setStatus,
+        isEmbeddedHost: isEmbeddedPluginHost,
+        readFileAsDataUrl: fileToDataUrl,
+        toFigmaImageDataUrl: ensurePngOrJpegDataUrl,
+        downloadBlob: triggerBlobDownload
+      });
+      let manualModeEnteredFromStartup = false;
 
       initUiWindowState();
       placeSourceButton.textContent = figExportUiMode.sliceLabel;
@@ -353,6 +362,12 @@
       initializeLocalService();
 
       startupRetry.addEventListener("click", initializeLocalService);
+      startupManualMode.addEventListener("click", () => {
+        manualModeEnteredFromStartup = true;
+        startupGate.hidden = true;
+        manualModeController.activateManualMode();
+        setStatus("已进入零 API 手动模式；本地服务未启动不会影响 JSON 导入。", "info");
+      });
       statusClose.addEventListener("click", () => {
         hideStatus();
       });
@@ -1437,6 +1452,7 @@
 
       window.onmessage = (event) => {
         const message = event.data?.pluginMessage;
+        if (manualModeController.handlePluginMessage(message)) return;
         const activeImportMessage = readActiveFigmaImportMessage(message, {
           figmaImportPending,
           activeFigmaImportRequestId
@@ -7689,10 +7705,11 @@
           // Restore prompts and draft loading continue in the background.
           void offerWorkspaceDraftRestore();
         } catch (error) {
-          startupGate.hidden = false;
           startupGate.classList.add("failed");
           startupRetry.hidden = false;
           startupMessage.textContent = `${readNetworkErrorMessage(error)}。启动服务后点击“重新连接”。`;
+          // Manual mode works without the local service; a late health-check failure must not cover it again.
+          if (!manualModeEnteredFromStartup) startupGate.hidden = false;
         }
       }
 

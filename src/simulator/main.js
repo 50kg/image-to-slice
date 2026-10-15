@@ -11,6 +11,9 @@ const {
   createFigmaFrameExportSelectionState
 } = require("../plugin/figma-frame-export-selection");
 const {
+  createManualModeRuntime
+} = require("../plugin/manual-mode-runtime");
+const {
   normalizeStoredUiWindowState,
   getUiWindowRestoreSize,
   buildCollapsedUiWindowState,
@@ -42,6 +45,10 @@ const importRuntime = createScreenImportRuntime({
   postMessage: postPluginMessage,
   onImported: renderPage
 });
+const manualModeRuntime = createManualModeRuntime({
+  figmaApi,
+  postMessage: postPluginMessage
+});
 
 restorePluginWindowState();
 
@@ -51,6 +58,11 @@ window.addEventListener("message", async (event) => {
 
   if (await importRuntime.handle(message)) {
     postPluginMessage(createFigmaFrameExportSelectionState(figmaApi));
+    return;
+  }
+
+  if (await manualModeRuntime.handle(message)) {
+    renderPage();
     return;
   }
 

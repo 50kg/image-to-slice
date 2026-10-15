@@ -89,7 +89,20 @@ async function createEditableImage({ figmaApi, atob, definition }) {
 
 async function createEditableText({ figmaApi, definition }) {
   const fontStyle = fontStyleFromWeight(definition.fontWeight);
-  const fontName = await loadPreferredTextFont(String(definition.text || ""), fontStyle, (font) => figmaApi.loadFontAsync(font));
+  let fontName = null;
+  const requestedFontFamily = String(definition.fontFamily || "").trim();
+  if (requestedFontFamily) {
+    const requestedFont = { family: requestedFontFamily, style: fontStyle };
+    try {
+      await figmaApi.loadFontAsync(requestedFont);
+      fontName = requestedFont;
+    } catch (error) {
+      // Fall back to the existing CJK-safe font chain when the requested font is unavailable.
+    }
+  }
+  if (!fontName) {
+    fontName = await loadPreferredTextFont(String(definition.text || ""), fontStyle, (font) => figmaApi.loadFontAsync(font));
+  }
 
   const text = figmaApi.createText();
   applyBaseNodeProperties(text, definition);

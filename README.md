@@ -12,7 +12,9 @@ GPT Image2 这类模型生成的 UI 效果图观感确实很不错，但直接�
 
 Figma 插件首页可在 **AI 自动模式** 与 **手动 JSON 模式** 之间切换。手动模式不请求图片理解、生图或修图 API，也不要求本地后端已经启动：如果启动检查失败，可直接点击 **不启动服务，进入手动模式**。
 
-手动工作流支持粘贴或上传 `.json`、单独上传背景图和多张素材图，并按 JSON 的 `src` 与完整文件名匹配。预校验通过后，可以在当前页面或新页面中生成 Frame、Text、Rectangle、Image 以及嵌套 Group/Container 图层；背景可选择作为锁定的底层图片节点或 Frame 填充。手动模式面板内置了可直接修改、格式化和导出的示例 JSON。
+手动工作流支持粘贴或上传 `.json`、单独上传背景图和多张素材图：背景图自动对应 `background.src`，其他素材按 JSON 的 `src` 与完整文件名匹配，WebP/GIF 会自动转换为 PNG。预校验通过后，可以在当前页面或新页面中生成 Frame、Text、Rectangle、Image 以及嵌套 Group/Container 图层；背景可选择作为锁定的底层图片节点或 Frame 填充。手动模式面板内置了可直接修改、格式化和导出的示例 JSON。
+
+完整的操作步骤和给网页版 AI 的提示词见 [手动 JSON 模式使用指南](docs/manual-json-mode.md)。
 
 ```text
 外部工具分析 UI 图片并生成结构 JSON

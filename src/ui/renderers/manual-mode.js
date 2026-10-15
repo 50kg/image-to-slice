@@ -1,4 +1,10 @@
-function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
+function initializeManualModeUi({
+  setStatus,
+  isEmbeddedHost,
+  readFileAsDataUrl,
+  toFigmaImageDataUrl,
+  downloadBlob
+}) {
   const workflowButtons = [...document.querySelectorAll("[data-workflow-mode]")];
   const jsonInput = document.getElementById("manualJsonInput");
   const jsonFileButton = document.getElementById("manualJsonFileButton");
@@ -66,12 +72,7 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
       return;
     }
     const blob = new Blob([formatManualDocument(result.document)], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${String(result.document.meta?.name || "manual-design").replace(/[\\/:*?\"<>|]+/g, "_")}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `${String(result.document.meta?.name || "manual-design").replace(/[\\/:*?\"<>|]+/g, "_")}.json`);
   });
   backgroundInput.addEventListener("change", async () => {
     const file = backgroundInput.files?.[0];
@@ -94,6 +95,7 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
       backgroundInput.value = "";
     }
     renderAssetList();
+    validateCurrentDocument();
   });
   validateButton.addEventListener("click", validateCurrentDocument);
   generateButton.addEventListener("click", () => {
@@ -104,6 +106,7 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
       setStatus("请在 Figma 插件环境中点击生成；当前页面只能完成 JSON 和素材校验。", "warning");
       return;
     }
+    const resolvedAssets = resolveCurrentAssetMap(result.document);
     activeRequestId = `manual-import-${Date.now()}-${++requestSequence}`;
     generateButton.disabled = true;
     generateButton.textContent = "正在生成…";
@@ -113,7 +116,10 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
         requestId: activeRequestId,
         payload: {
           document: result.document,
-          assetMap: Object.fromEntries(assetMap),
+          // Only send referenced assets; unused uploads can be large data URLs.
+          assetMap: Object.fromEntries(
+            collectManualAssetNames(result.document).map((name) => [name, resolvedAssets.get(name)])
+          ),
           target: targetSelect.value,
           backgroundMode: backgroundModeSelect.value
         }
@@ -126,16 +132,27 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
     if (supported.length !== files.length) {
       setStatus("已忽略不支持的素材格式；请使用 PNG、JPG、WebP 或 GIF。", "warning");
     }
-    for (const file of supported) assetMap.set(file.name, await readFileAsDataUrl(file));
+    for (const file of supported) {
+      try {
+        // Figma image nodes only accept PNG/JPEG bytes, so convert WebP/GIF here.
+        assetMap.set(file.name, await toFigmaImageDataUrl(await readFileAsDataUrl(file)));
+      } catch (error) {
+        setStatus(`素材 ${file.name} 读取或转换失败：${error?.message || String(error)}`, "error");
+      }
+    }
     renderAssetList();
     validateCurrentDocument();
+  }
+
+  function resolveCurrentAssetMap(documentValue) {
+    return resolveManualAssetMap(documentValue, assetMap, backgroundAssetName);
   }
 
   function renderAssetList() {
     assetList.replaceChildren();
     if (!assetMap.size) {
       const empty = document.createElement("span");
-      empty.textContent = "上传后将按完整文件名与 JSON 的 src 匹配。";
+      empty.textContent = "背景图自动对应 background.src；其他素材按完整文件名与 src 匹配。";
       assetList.appendChild(empty);
     } else {
       for (const name of assetMap.keys()) {
@@ -160,7 +177,9 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
   function validateCurrentDocument() {
     const result = parseManualJson(jsonInput.value);
     showValidationResult(result.document, result.errors);
-    return result.document && result.errors.length === 0 && findMissingManualAssets(result.document, assetMap).length === 0
+    return result.document
+      && result.errors.length === 0
+      && findMissingManualAssets(result.document, resolveCurrentAssetMap(result.document)).length === 0
       ? result
       : null;
   }
@@ -168,7 +187,7 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
   function showValidationResult(documentValue, schemaErrors) {
     const errors = [...schemaErrors];
     if (documentValue && !schemaErrors.length) {
-      const missing = findMissingManualAssets(documentValue, assetMap);
+      const missing = findMissingManualAssets(documentValue, resolveCurrentAssetMap(documentValue));
       if (missing.length) errors.push(`缺少素材：${missing.join("、")}。请上传与 src 同名的文件。`);
     }
     if (errors.length) {
@@ -231,15 +250,6 @@ function initializeManualModeUi({ setStatus, isEmbeddedHost }) {
 
 function countManualElements(elements) {
   return (elements || []).reduce((count, element) => count + 1 + countManualElements(element.children), 0);
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error(`读取 ${file.name} 失败`));
-    reader.readAsDataURL(file);
-  });
 }
 
 if (typeof module !== "undefined") {

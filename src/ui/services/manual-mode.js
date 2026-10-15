@@ -1,4 +1,5 @@
 const MANUAL_ELEMENT_TYPES = new Set(["text", "rectangle", "image", "group", "container", "frame"]);
+const MANUAL_HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 const SAMPLE_MANUAL_DOCUMENT = {
   version: "1.0",
@@ -103,6 +104,7 @@ function validateManualDocument(document) {
   } else {
     validatePositiveNumber(document.meta.width, "meta.width", errors);
     validatePositiveNumber(document.meta.height, "meta.height", errors);
+    validateManualColor(document.meta.backgroundColor, "meta.backgroundColor", errors);
   }
   if (!Array.isArray(document.elements)) {
     errors.push("elements 必须是数组。");
@@ -114,6 +116,9 @@ function validateManualDocument(document) {
   }
   if (document.background?.type === "image" && !normalizeAssetName(document.background.src)) {
     errors.push("background.src：图片背景必须指定素材文件名。");
+  }
+  if (document.background?.type === "color") {
+    validateManualColor(document.background.color, "background.color", errors);
   }
   if (document.assets !== undefined && !Array.isArray(document.assets)) {
     errors.push("assets 必须是文件名数组。");
@@ -133,6 +138,9 @@ function validateManualElement(element, path, errors) {
   ["width", "height"].forEach((field) => validatePositiveNumber(element[field], `${path}.${field}`, errors));
   if (type === "text" && element.text === undefined) errors.push(`${path}.text 缺失。`);
   if (type === "image" && !normalizeAssetName(element.src)) errors.push(`${path}.src 缺失。`);
+  const style = element.style && typeof element.style === "object" ? element.style : {};
+  ["fill", "backgroundColor", "stroke"].forEach((field) => validateManualColor(style[field], `${path}.style.${field}`, errors));
+  validateManualColor(style.color, `${path}.style.color`, errors, { allowTransparent: false });
   if (["group", "container", "frame"].includes(type)) {
     if (!Array.isArray(element.children)) errors.push(`${path}.children 必须是数组。`);
     else element.children.forEach((child, index) => validateManualElement(child, `${path}.children[${index}]`, errors));
@@ -146,6 +154,14 @@ function validateFiniteNumber(value, path, errors) {
 function validatePositiveNumber(value, path, errors) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) errors.push(`${path} 必须是大于 0 的数字。`);
+}
+
+function validateManualColor(value, path, errors, { allowTransparent = true } = {}) {
+  if (value === undefined || value === null) return;
+  const color = String(value).trim();
+  if (MANUAL_HEX_COLOR_PATTERN.test(color)) return;
+  if (allowTransparent && color.toLowerCase() === "transparent") return;
+  errors.push(`${path} 必须是 #RGB 或 #RRGGBB 颜色${allowTransparent ? "，或 transparent" : ""}。`);
 }
 
 function collectManualAssetNames(document) {
@@ -168,6 +184,16 @@ function findMissingManualAssets(document, assetMap) {
   return collectManualAssetNames(document).filter((name) => !available.has(name));
 }
 
+// The dedicated background upload satisfies background.src even when the file name differs.
+function resolveManualAssetMap(document, assetMap, backgroundAssetName = "") {
+  const resolved = new Map(assetMap instanceof Map ? assetMap : Object.entries(assetMap || {}));
+  const backgroundSrc = document?.background?.type === "image" ? normalizeAssetName(document.background.src) : "";
+  if (backgroundSrc && !resolved.has(backgroundSrc) && backgroundAssetName && resolved.has(backgroundAssetName)) {
+    resolved.set(backgroundSrc, resolved.get(backgroundAssetName));
+  }
+  return resolved;
+}
+
 function normalizeAssetName(value) {
   return String(value || "").trim().replace(/^.*[\\/]/, "");
 }
@@ -181,6 +207,7 @@ if (typeof module !== "undefined") {
     formatManualDocument,
     normalizeAssetName,
     parseManualJson,
+    resolveManualAssetMap,
     validateManualDocument
   };
 }

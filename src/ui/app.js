@@ -344,8 +344,12 @@
       const figExportUiMode = getFigExportUiMode(isEmbeddedPluginHost());
       const manualModeController = initializeManualModeUi({
         setStatus,
-        isEmbeddedHost: isEmbeddedPluginHost
+        isEmbeddedHost: isEmbeddedPluginHost,
+        readFileAsDataUrl: fileToDataUrl,
+        toFigmaImageDataUrl: ensurePngOrJpegDataUrl,
+        downloadBlob: triggerBlobDownload
       });
+      let manualModeEnteredFromStartup = false;
 
       initUiWindowState();
       placeSourceButton.textContent = figExportUiMode.sliceLabel;
@@ -359,6 +363,7 @@
 
       startupRetry.addEventListener("click", initializeLocalService);
       startupManualMode.addEventListener("click", () => {
+        manualModeEnteredFromStartup = true;
         startupGate.hidden = true;
         manualModeController.activateManualMode();
         setStatus("已进入零 API 手动模式；本地服务未启动不会影响 JSON 导入。", "info");
@@ -7700,10 +7705,11 @@
           // Restore prompts and draft loading continue in the background.
           void offerWorkspaceDraftRestore();
         } catch (error) {
-          startupGate.hidden = false;
           startupGate.classList.add("failed");
           startupRetry.hidden = false;
           startupMessage.textContent = `${readNetworkErrorMessage(error)}。启动服务后点击“重新连接”。`;
+          // Manual mode works without the local service; a late health-check failure must not cover it again.
+          if (!manualModeEnteredFromStartup) startupGate.hidden = false;
         }
       }
 

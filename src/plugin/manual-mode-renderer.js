@@ -1,7 +1,8 @@
 const { createEditableNode } = require("./editable-node");
 const { createImageRectangle } = require("./asset-node");
-const { createEditableFills, hexToSolidPaint } = require("./paint");
+const { applyCornerRadius, createEditableFills, hexToSolidPaint } = require("./paint");
 const { findEmptyImportPosition } = require("./import-position");
+const { clampNumber } = require("./ui-window-state");
 
 const SUPPORTED_TYPES = new Set(["text", "rectangle", "image", "group", "container", "frame"]);
 
@@ -9,6 +10,7 @@ async function createManualDesignScreen({ figmaApi, atob, payload }) {
   validateManualPayload(payload);
   const document = payload.document;
   const assetMap = payload.assetMap || {};
+  const previousPage = figmaApi.currentPage;
   const targetPage = createTargetPage(figmaApi, payload.target, document.meta.name);
   const frame = figmaApi.createFrame();
   try {
@@ -18,7 +20,10 @@ async function createManualDesignScreen({ figmaApi, atob, payload }) {
     frame.x = position.x;
     frame.y = position.y;
     frame.clipsContent = document.meta.clipsContent !== false;
-    frame.fills = createEditableFills({ fill: document.meta.backgroundColor || "#FFFFFF" }, "#FFFFFF");
+    const backgroundColor = document.meta.backgroundColor === undefined
+      ? "#FFFFFF"
+      : normalizeManualColor(document.meta.backgroundColor);
+    frame.fills = createEditableFills({ fill: backgroundColor }, "#FFFFFF");
     targetPage.appendChild(frame);
 
     const background = document.background;
@@ -43,7 +48,8 @@ async function createManualDesignScreen({ figmaApi, atob, payload }) {
         frame.appendChild(backgroundNode);
       }
     } else if (background?.type === "color" && background.color) {
-      frame.fills = [hexToSolidPaint(background.color, background.opacity)];
+      const color = normalizeManualColor(background.color);
+      frame.fills = color ? [hexToSolidPaint(color, background.opacity)] : [];
     }
 
     let createdCount = 0;
@@ -56,6 +62,11 @@ async function createManualDesignScreen({ figmaApi, atob, payload }) {
     return { createdCount, frameName: frame.name };
   } catch (error) {
     if (!frame.removed) frame.remove();
+    if (targetPage !== previousPage) {
+      // Figma cannot remove the current page, so switch back before dropping the empty page.
+      figmaApi.currentPage = previousPage;
+      if (!targetPage.removed) targetPage.remove();
+    }
     throw error;
   }
 }
@@ -74,6 +85,11 @@ async function appendManualElement({ figmaApi, atob, parent, element, assetMap }
     node.fills = element.style?.fill || element.style?.backgroundColor
       ? createEditableFills(definition, null)
       : [];
+    applyCornerRadius(node, definition);
+    if (definition.stroke) {
+      node.strokes = [hexToSolidPaint(definition.stroke)];
+      node.strokeWeight = clampNumber(Number(definition.strokeWidth), 0, 24, 1);
+    }
     applyManualProperties(node, element);
     node.setPluginData("manualContainerType", type);
     parent.appendChild(node);
@@ -102,7 +118,7 @@ function toEditableDefinition(element, assetMap) {
     text: element.text,
     dataUrl: type === "image" ? requireAsset(assetMap, element.src, `图层 ${element.name || element.id || element.src}`) : undefined,
     scaleMode: String(element.fit || "fill").toLowerCase() === "fit" ? "FIT" : "FILL",
-    fill: style.fill ?? style.backgroundColor ?? (type === "rectangle" ? "#FFFFFF" : null),
+    fill: normalizeManualColor(style.fill ?? style.backgroundColor ?? (type === "rectangle" ? "#FFFFFF" : null)),
     color: style.color,
     fontSize: style.fontSize,
     fontWeight: style.fontWeight,
@@ -110,7 +126,7 @@ function toEditableDefinition(element, assetMap) {
     lineHeight: style.lineHeight,
     letterSpacing: style.letterSpacing,
     radius: style.cornerRadius,
-    stroke: style.stroke,
+    stroke: normalizeManualColor(style.stroke),
     strokeWidth: style.strokeWidth
   };
 }
@@ -123,6 +139,13 @@ function applyManualProperties(node, element) {
   if (node.type === "TEXT" && ["LEFT", "CENTER", "RIGHT", "JUSTIFIED"].includes(textAlign)) {
     node.textAlignHorizontal = textAlign;
   }
+}
+
+// "transparent" means no paint; Figma paints otherwise parse it as black.
+function normalizeManualColor(value) {
+  if (value === undefined || value === null) return null;
+  const color = String(value).trim();
+  return color.toLowerCase() === "transparent" ? null : color;
 }
 
 function requireAsset(assetMap, source, label) {

@@ -120,3 +120,40 @@ test("manual runtime ignores unrelated plugin messages", async () => {
   const runtime = createManualModeRuntime({ figmaApi: createFigmaApi(), postMessage: () => {} });
   assert.equal(await runtime.handle({ type: "other" }), false);
 });
+
+test("manual runtime removes the new page and restores the previous page when import fails", async () => {
+  const figmaApi = createFigmaApi();
+  const originalPage = figmaApi.currentPage;
+  const messages = [];
+  const runtime = createManualModeRuntime({ figmaApi, postMessage: (message) => messages.push(message) });
+  const payload = createPayload({ target: "new-page", assetMap: { "background.png": "data:image/png;base64,AQ==" } });
+
+  await runtime.handle({ type: "create-manual-design-screen", requestId: "r4", payload });
+  assert.equal(messages[0].type, "generation-error");
+  assert.equal(figmaApi.currentPage, originalPage);
+  assert.equal(figmaApi.pages[1].removed, true);
+});
+
+test("manual runtime treats transparent as no paint and styles containers", async () => {
+  const figmaApi = createFigmaApi();
+  const runtime = createManualModeRuntime({ figmaApi, postMessage: () => {} });
+  const payload = createPayload({
+    document: {
+      meta: { name: "Styles", width: 300, height: 200, backgroundColor: "transparent" },
+      elements: [
+        { type: "rectangle", name: "Ghost", x: 0, y: 0, width: 50, height: 50, style: { fill: "transparent", stroke: "transparent" } },
+        { type: "container", name: "Card", x: 60, y: 0, width: 120, height: 80, style: { fill: "#FFFFFF", cornerRadius: 16, stroke: "#DDE2EA", strokeWidth: 2 }, children: [] }
+      ]
+    },
+    assetMap: {}
+  });
+
+  await runtime.handle({ type: "create-manual-design-screen", requestId: "r5", payload });
+  const frame = figmaApi.currentPage.children[0];
+  assert.deepEqual(frame.fills, []);
+  assert.deepEqual(frame.children[0].fills, []);
+  assert.equal(frame.children[0].strokes, undefined);
+  assert.equal(frame.children[1].cornerRadius, 16);
+  assert.equal(frame.children[1].strokeWeight, 2);
+  assert.equal(frame.children[1].strokes[0].type, "SOLID");
+});

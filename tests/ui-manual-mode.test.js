@@ -7,6 +7,7 @@ const {
   findMissingManualAssets,
   formatManualDocument,
   parseManualJson,
+  resolveManualAssetMap,
   validateManualDocument
 } = require("../src/ui/services/manual-mode");
 
@@ -42,4 +43,27 @@ test("manual mode collects referenced assets and identifies missing files", () =
   assert.deepEqual(findMissingManualAssets(SAMPLE_MANUAL_DOCUMENT, new Map([["background.png", "data:image/png;base64,AA=="]])), [
     "person.png"
   ]);
+});
+
+test("manual mode rejects colors that Figma paints cannot represent", () => {
+  const document = structuredClone(SAMPLE_MANUAL_DOCUMENT);
+  document.meta.backgroundColor = "transparent";
+  document.elements[0].style.color = "rgba(255, 255, 255, 0.8)";
+  document.elements[2].children[0].style.fill = "red";
+  document.elements[2].children[0].style.stroke = "transparent";
+  assert.deepEqual(validateManualDocument(document), [
+    "elements[0].style.color 必须是 #RGB 或 #RRGGBB 颜色。",
+    "elements[2].children[0].style.fill 必须是 #RGB 或 #RRGGBB 颜色，或 transparent。"
+  ]);
+});
+
+test("manual mode binds the dedicated background upload to background.src", () => {
+  const assets = new Map([["bg-final.jpg", "data:image/jpeg;base64,AA=="], ["person.png", "data:image/png;base64,AA=="]]);
+  const resolved = resolveManualAssetMap(SAMPLE_MANUAL_DOCUMENT, assets, "bg-final.jpg");
+  assert.equal(resolved.get("background.png"), "data:image/jpeg;base64,AA==");
+  assert.deepEqual(findMissingManualAssets(SAMPLE_MANUAL_DOCUMENT, resolved), []);
+  assert.equal(assets.has("background.png"), false);
+
+  const exactMatch = new Map([["background.png", "exact"], ["bg-final.jpg", "upload"]]);
+  assert.equal(resolveManualAssetMap(SAMPLE_MANUAL_DOCUMENT, exactMatch, "bg-final.jpg").get("background.png"), "exact");
 });

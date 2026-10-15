@@ -1,4 +1,6 @@
-# 这个项目怎么用？
+# 手动 JSON 模式使用指南（零 API）
+
+不配置任何 AI 模型、不启动本地服务，也可以把结构 JSON 和素材图导入为可编辑的 Figma 图层。
 
 ## 1. figma需要导入插件
 
@@ -6,7 +8,7 @@
 
 1. 打开 Figma Desktop，并进入任意一个设计文件。
 2. 打开菜单：`Plugins → Development → Import plugin from manifest…`
-3. 选择项目里的 [manifest.json](/D:/image-to-slice-1.1.2/manifest.json)。
+3. 选择项目根目录下的 [manifest.json](../manifest.json)。
 4. 导入完成后，再打开：
    `Plugins → Development → Image To Slice`
 5. 插件窗口出现后，点击“手动 JSON 模式”。
@@ -171,7 +173,7 @@
 11. 普通文字、纯色按钮、卡片和基础图形必须重建为 Text 或 Rectangle，不要切成图片。
 12. 人物、商品、插画、复杂装饰、纹理和艺术字可以作为 Image 素材。
 13. 不要使用 ellipse、icon、svg、gradient、autoLayout、mask 等未支持类型。
-14. 颜色使用 #RRGGBB。
+14. 颜色使用 #RRGGBB；需要透明填充时写 transparent，不要使用 rgba() 或颜色名。
 15. 不确定的坐标也必须给出合理估算，不要省略字段。
 
 先输出“需要准备的图片素材清单”，说明每张素材应包含什么。
@@ -246,7 +248,7 @@ Logo、商品、复杂插画和装饰也按同样方法分别处理。
 
 在插件左侧继续向下滚动：
 
-1. “背景图”上传 `background.png`。
+1. “背景图”上传背景图片。这里上传的文件会自动对应 JSON 中的 `background.src`，文件名不一致也可以。
 2. “其他素材”一次选择 `hero-person.png`、`logo.png` 等文件。
 3. 检查素材列表中的文件名。
 4. “插入位置”建议首次选择“新建页面”。
@@ -262,3 +264,10 @@ Logo、商品、复杂插画和装饰也按同样方法分别处理。
 ```
 
 说明 JSON 中写的是 `hero-person.png`，但你上传的文件可能叫 `hero-person (1).png`。重命名后重新上传即可。
+
+## 6. 补充说明
+
+- 素材支持 PNG、JPG、WebP、GIF；WebP 和 GIF 会在插件内自动转换为 PNG（GIF 只保留第一帧）。
+- 颜色字段（`meta.backgroundColor`、`background.color`、`style.fill`、`style.backgroundColor`、`style.stroke`）只接受 `#RGB`、`#RRGGBB` 或 `transparent`；文字颜色 `style.color` 只接受十六进制颜色。
+- group、container、frame 同样支持 `style.fill`、`style.cornerRadius`、`style.stroke` 和 `style.strokeWidth`。
+- 可选字段 `rotation`（单位：度）按 Figma 的规则处理：以图层左上角为原点，正值为逆时针旋转。它与 CSS 以中心为原点、正值顺时针的旋转不同，一般建议不填。

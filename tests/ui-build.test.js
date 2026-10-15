@@ -274,6 +274,8 @@ test("startup gate stays visible until health and config both load successfully"
   assert.ok(gateHideIndex > configLoadIndex);
   assert.match(startupSource, /catch \(error\)[\s\S]*startupGate\.hidden = false/);
   assert.match(startupSource, /startupRetry\.hidden = false/);
+  // Entering manual mode during the health check must not be undone by a late failure.
+  assert.match(startupSource, /catch \(error\)[\s\S]*if \(!manualModeEnteredFromStartup\) startupGate\.hidden = false/);
 });
 
 test("local API exposes the health endpoint used by the startup gate", () => {

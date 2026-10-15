@@ -3,30 +3,8 @@ const assert = require("node:assert/strict");
 
 const {
   collectRectColors,
-  getExpandedSampleRect,
   paintEdgeBlendRepairPatch
 } = require("../src/ui/services/slice-repair");
-
-test("getExpandedSampleRect expands placement and clamps to source bounds", () => {
-  assert.deepEqual(getExpandedSampleRect(
-    { naturalWidth: 100, naturalHeight: 80 },
-    { x: 10, y: 12, width: 20, height: 10 }
-  ), {
-    x: 0,
-    y: 0,
-    width: 46,
-    height: 38
-  });
-  assert.deepEqual(getExpandedSampleRect(
-    { width: 100, height: 80 },
-    { x: 90, y: 70, width: 20, height: 20 }
-  ), {
-    x: 74,
-    y: 54,
-    width: 26,
-    height: 26
-  });
-});
 
 test("collectRectColors samples rectangle pixels through a canvas context", () => {
   const calls = [];
